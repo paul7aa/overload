@@ -1,0 +1,46 @@
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# Docs
+PLAN.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.env
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data — raw and processed files are versioned via DVC, not git
+data/*.csv
+data/*.parquet
+data/raw/
+data/processed/
+data/incoming/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Models
+models/
+*.pkl
+*.joblib
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
