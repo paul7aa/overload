@@ -32,9 +32,9 @@ data/incoming/
 # MLflow
 mlruns/
 mlartifacts/
+mlflow.db
 
 # Models
-models/
 *.pkl
 *.joblib
 
