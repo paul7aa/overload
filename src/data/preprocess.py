@@ -52,6 +52,7 @@ import pandas as pd
 from consts import lookup_pct_1rm
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 from sklearn.model_selection import train_test_split
+import json
 
 DATASET_PATH = "data/programs_detailed.csv"
 CLEAN_DATASET_PATH = "data/programs_detailed_cleaned.csv"
@@ -95,6 +96,8 @@ data = data.drop("equipment", axis=1).join(pd.get_dummies(data["equipment"]))
 
 le_exercise = LabelEncoder()
 data["exercise_id"] = le_exercise.fit_transform(data["exercise_name"])
+json.dump({name: int(i) for i, name in enumerate(le_exercise.classes_)},
+          open("data/exercise_map.json", "w"))
 data = data.drop(columns=["exercise_name"])
 
 data["week_pct"] = (data["week"] / data["program_length"]).round(3)

@@ -20,3 +20,4 @@ def lookup_pct_1rm(reps: float, rpe: float) -> float | None:
     if r not in RPE_TABLE or e not in RPE_TABLE[r]:
         return None
     return RPE_TABLE[r][e] / 100.0
+

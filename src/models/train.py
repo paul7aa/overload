@@ -1,5 +1,7 @@
 import mlflow
 import pandas as pd
+
+mlflow.set_tracking_uri("http://localhost:5000")
 from lightgbm import LGBMRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_score

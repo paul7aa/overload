@@ -15,6 +15,8 @@ import mlflow
 import mlflow.exceptions
 from mlflow import MlflowClient
 
+mlflow.set_tracking_uri("http://localhost:5000")
+
 EXPERIMENT_NAME = "overload-predictor"
 MODEL_NAME      = "overload-predictor"
 ALIAS_PROD      = "Production"
