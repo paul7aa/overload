@@ -80,5 +80,7 @@ def predict(req: PredictRequest):
 def reload():
     global _model, _version
     _model, _version = load_model()
+    if _model is None:
+        raise HTTPException(503, "No Production model found in MLflow")
     return {"status": "reloaded", "model_version": _version.version}
 

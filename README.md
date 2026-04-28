@@ -1,6 +1,6 @@
 # Progressive Overload Predictor
 
-An end-to-end MLOps pipeline that predicts how a workout program should progress week-over-week — giving you the actual weight to lift based on your one rep max.
+A mobile-first MLOps app that tells you exactly what weight to lift next week — and gets smarter the more you use it.
 
 ---
 
@@ -8,17 +8,23 @@ An end-to-end MLOps pipeline that predicts how a workout program should progress
 
 Progressive overload (gradually increasing training stress over time) is the fundamental driver of strength and muscle gains. Knowing *how much* to increase each week is non-trivial: too little and you stagnate, too much and you risk injury or burnout.
 
-Existing workout apps either follow rigid, pre-written programs or leave the decision entirely to the user. This project learns the progression patterns from hundreds of real, coach-designed programs and applies them to your own lifts.
+Existing workout apps either follow rigid, pre-written programs or leave the decision entirely to the user. This project learns progression patterns from hundreds of real coach-designed programs, then continuously refines that knowledge from your own gym sessions.
 
 ---
 
 ## How it works
 
-### The dataset
+### Phase 1 — Cold start (Boostcamp dataset)
 
-The model is trained on ~2.5 million rows of structured workout program data (Boostcamp, via Kaggle), covering 892 programs and 1,674 exercises. Each row is one exercise prescription: how many sets, reps, and at what intensity to perform it in a given week.
+The model is bootstrapped on ~400k rows of structured workout program data (Boostcamp, via Kaggle), covering 2,500+ programs and 1,674 exercises. Each row is one exercise prescription: how many sets, reps, and at what intensity to perform it in a given week.
 
-The dataset does not contain absolute weights — only relative intensity targets expressed as **RPE**.
+**Dataset:** [600K+ Fitness Exercise & Workout Program Dataset](https://www.kaggle.com/datasets/adnanelouardi/600k-fitness-exercise-and-workout-program-dataset) — download `programs_detailed_boostcamp_kaggle.csv` and save it as `data/programs_detailed.csv`.
+
+### Phase 2 — Continuous learning (user logs)
+
+Every time a user logs a completed session via the mobile app, that data is stored in PostgreSQL. When enough new sessions have accumulated, a scheduled Prefect flow automatically retrains the model on the combined dataset — coach-designed programs plus real user progressions. The model gets promoted to Production if it beats the current champion.
+
+---
 
 ### RPE — Rate of Perceived Exertion
 
@@ -72,23 +78,24 @@ Example: model predicts +3% relative load next week, user's bench 1RM is 100 kg 
 
 ---
 
-## Pipeline architecture
+## Architecture
 
-New data dropped into `data/incoming/` triggers a fully automated retraining pipeline:
+### Retraining pipeline
 
 ```
-data/incoming/  ← drop new CSV files here
-      │
-      ▼  Watchdog detects file
-Prefect flow triggered
-      │
-      ├─ 1. Validate        Great Expectations checks schema + value ranges
-      ├─ 2. Merge + version  DVC appends new data, commits new version
-      ├─ 3. Preprocess       Feature engineering, train/val split
-      ├─ 4. Train            MLflow experiment — LightGBM multi-output regression
-      ├─ 5. Evaluate         Challenger vs current Production champion
-      └─ 6. Promote          Best model tagged Production in MLflow Registry
-                             FastAPI hot-swaps model with zero downtime
+User logs session via mobile app
+        │
+        ▼
+PostgreSQL (session store)
+        │
+        ▼  500+ new sessions accumulated
+Prefect scheduled flow triggered
+        │
+        ├─ 1. Preprocess    Merge Boostcamp + user logs → feature engineering
+        ├─ 2. Train         MLflow experiment — LightGBM multi-output regression
+        ├─ 3. Evaluate      Challenger vs current Production champion
+        └─ 4. Promote       Best model tagged Production in MLflow Registry
+                            FastAPI hot-swaps model via /reload
 ```
 
 ### Services
@@ -96,35 +103,47 @@ Prefect flow triggered
 | Service | Tool | Purpose |
 |---------|------|---------|
 | Experiment tracking | MLflow | Log params, metrics, model artifacts |
-| Data versioning | DVC | Version raw and processed datasets |
-| Orchestration | Prefect | Automate the retraining flow |
-| Data validation | Great Expectations | Catch bad data before training |
-| API | FastAPI + Pydantic | Serve predictions, `/reload` endpoint |
-| Containerisation | Docker Compose | Isolate all services |
-| Automation trigger | Watchdog | Fire pipeline on new data arrival |
+| Orchestration | Prefect | Retraining flow + scheduling |
+| Session store | PostgreSQL | Persist user gym logs |
+| API | FastAPI + Pydantic | Predictions, session logging, model reload |
+| Containerisation | Docker Compose | Run full stack locally |
+| Mobile app | React Native (planned) | iOS/Android client |
+
+### Hosting
+
+The full stack runs locally on a home machine. The mobile app connects over local WiFi (`http://<machine-ip>:8000`).
 
 ---
 
-## API usage
+## API
+
+```
+POST /predict       Get next week's prescription
+POST /log           Record a completed session (feeds retraining)
+POST /reload        Hot-swap to latest Production model
+GET  /health        Model status + version
+GET  /docs          Interactive API docs (Swagger UI)
+```
+
+### Example
 
 ```
 POST /predict
 {
   "exercise": "Bench Press (Barbell)",
-  "current_week": 4,
-  "sets": 3,
-  "reps": 5,
-  "rpe": 8,
-  "one_rep_max_kg": 100,
-  "program_level": "Intermediate",
-  "goal": "Powerbuilding"
+  "one_rm": 100,
+  "lag_sets": 3,
+  "lag_reps": 5,
+  "lag_rpe": 8,
+  "week": 4,
+  "program_length": 12,
+  ...
 }
 
 → {
   "next_sets": 3,
   "next_reps": 5,
-  "next_rpe": 8.5,
-  "next_pct_1rm": 0.79,
+  "delta_pct_1rm": 0.03,
   "next_weight_kg": 79.0
 }
 ```
@@ -134,29 +153,38 @@ POST /predict
 ## Project structure
 
 ```
-overload/
-├── data/
-│   ├── raw/                  # DVC-tracked original dataset
-│   ├── processed/            # DVC-tracked feature-engineered parquet
-│   └── incoming/             # Drop zone for new training data
-├── src/
+overload/                         # monorepo root
+├── backend/
 │   ├── data/
-│   │   ├── eda.py            # Exploratory analysis
-│   │   ├── validate.py       # Great Expectations suite
-│   │   ├── preprocess.py     # Cleaning + feature engineering
-│   │   └── merge.py          # Merge incoming → raw
-│   ├── models/
-│   │   ├── train.py          # MLflow training run
-│   │   └── evaluate.py       # Champion vs challenger comparison
-│   ├── pipeline/
-│   │   ├── flows.py          # Prefect flow definition
-│   │   └── watcher.py        # Watchdog → Prefect trigger
-│   └── api/
-│       ├── app.py            # FastAPI app
-│       └── schemas.py        # Pydantic I/O models
-├── docker-compose.yml
-├── dvc.yaml
-├── PLAN.md
+│   │   ├── programs_detailed.csv     # Boostcamp cold-start dataset (not committed)
+│   │   ├── train.csv                 # Generated by preprocess.py
+│   │   ├── val.csv                   # Generated by preprocess.py
+│   │   └── exercise_map.json         # Exercise name → encoded ID
+│   ├── src/
+│   │   ├── data/
+│   │   │   ├── consts.py             # Tuchscherer RPE → pct_1rm table
+│   │   │   ├── eda.py                # Exploratory analysis
+│   │   │   └── preprocess.py        # Cleaning + feature engineering
+│   │   ├── models/
+│   │   │   ├── train.py              # MLflow training run
+│   │   │   ├── evaluate.py           # Champion vs challenger comparison
+│   │   │   ├── tune.py               # Optuna hyperparameter search
+│   │   │   └── utils.py              # Model loading helpers
+│   │   ├── pipeline/
+│   │   │   └── flow.py               # Prefect flow: preprocess → train → evaluate
+│   │   └── api/
+│   │       ├── app.py                # FastAPI app
+│   │       └── schemas.py            # Pydantic I/O models
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   └── requirements.txt
+├── mobile/                       # React Native app (planned)
+│   ├── src/
+│   │   ├── screens/              # Workout input, recommendation, session log
+│   │   ├── components/
+│   │   └── api/                  # API client (points to backend over WiFi)
+│   ├── app.json
+│   └── package.json
 └── README.md
 ```
 
@@ -165,14 +193,17 @@ overload/
 ## Quickstart
 
 ```bash
-# Start all services
-docker compose up
+# 1. Download the dataset and place it at data/programs_detailed.csv
+# https://www.kaggle.com/datasets/adnanelouardi/600k-fitness-exercise-and-workout-program-dataset
 
-# Drop new training data to trigger retraining
-cp my_new_data.csv data/incoming/
+# 2. Start all services
+docker compose up -d
+
+# 3. Run the full pipeline (preprocess → train → evaluate → promote)
+docker compose exec worker python src/pipeline/flow.py
 
 # MLflow UI
-open http://localhost:5000
+open http://localhost:5001
 
 # Prefect UI
 open http://localhost:4200
@@ -180,3 +211,16 @@ open http://localhost:4200
 # API docs
 open http://localhost:8000/docs
 ```
+
+## Roadmap
+
+- [x] Boostcamp cold-start training pipeline
+- [x] MLflow experiment tracking + model registry
+- [x] Champion/challenger promotion logic
+- [x] FastAPI prediction endpoint
+- [x] Prefect orchestration + worker
+- [ ] PostgreSQL session store
+- [ ] `POST /log` endpoint
+- [ ] Scheduled retraining flow on user log threshold
+- [ ] React Native mobile app
+

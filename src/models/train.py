@@ -1,7 +1,8 @@
+import os
 import mlflow
 import pandas as pd
 
-mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
 from lightgbm import LGBMRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_score
@@ -12,18 +13,17 @@ TARGETS   = ["delta_sets", "delta_reps", "delta_pct_1rm"]
 DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume"] + TARGETS
 WEIGHTS   = {"delta_pct_1rm": 0.50, "delta_reps": 0.35, "delta_sets": 0.15}
 
-mlflow.set_experiment(EXPERIMENT_NAME)
+def _load_data():
+    train_data = pd.read_csv("data/train.csv")
+    val_data   = pd.read_csv("data/val.csv")
+    train_X = train_data.drop(columns=DROP_COLS)
+    train_Y = train_data[TARGETS]
+    val_X   = val_data.drop(columns=DROP_COLS)
+    val_Y   = val_data[TARGETS]
+    return train_X, train_Y, val_X, val_Y
 
-train_data = pd.read_csv("data/train.csv")
-val_data   = pd.read_csv("data/val.csv")
 
-train_X = train_data.drop(columns=DROP_COLS)
-train_Y = train_data[TARGETS]
-val_X   = val_data.drop(columns=DROP_COLS)
-val_Y   = val_data[TARGETS]
-
-
-def train(run_name, hyperparams):
+def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y):
     model = MultiOutputRegressor(LGBMRegressor(**hyperparams))
 
     with mlflow.start_run(run_name=run_name, nested=True):
@@ -70,7 +70,9 @@ def train(run_name, hyperparams):
         return score
 
 
-if __name__ == "__main__":
+def run_training():
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    train_X, train_Y, val_X, val_Y = _load_data()
     hyperparams = {
         "n_estimators":      531,
         "learning_rate":     0.016,
@@ -81,4 +83,8 @@ if __name__ == "__main__":
         "random_state":      42,
         "n_jobs":            -1,
     }
-    train("training", hyperparams)
+    train("training", hyperparams, train_X, train_Y, val_X, val_Y)
+
+
+if __name__ == "__main__":
+    run_training()

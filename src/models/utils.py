@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import mlflow
+import mlflow.exceptions
 import mlflow.sklearn
 from mlflow import MlflowClient
 
@@ -15,9 +16,12 @@ client = MlflowClient()
 
 
 def load_model():
-    version = client.get_model_version_by_alias(MODEL_NAME, ALIAS_PROD)
-    model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@{ALIAS_PROD}")
-    return model, version
+    try:
+        version = client.get_model_version_by_alias(MODEL_NAME, ALIAS_PROD)
+        model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@{ALIAS_PROD}")
+        return model, version
+    except mlflow.exceptions.MlflowException:
+        return None, None
 
 
 def load_exercise_map() -> dict[str, int]:

@@ -49,7 +49,7 @@ Targets (week-over-week deltas — what the model predicts)
 
 import ast
 import pandas as pd
-from consts import lookup_pct_1rm
+from data.consts import lookup_pct_1rm
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 from sklearn.model_selection import train_test_split
 import json
@@ -69,68 +69,73 @@ def multihot_encode_str_list(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return df.drop(columns=[col]).join(encoded)
 
 
-data = pd.read_csv(DATASET_PATH)
+def preprocess():
+    data = pd.read_csv(DATASET_PATH)
 
-data = data.drop(columns=["description", "created", "last_edit"])
-data = data.drop_duplicates()
-data = data.dropna(subset=["program_length", "equipment"])
+    data = data.drop(columns=["description", "created", "last_edit"])
+    data = data.drop_duplicates()
+    data = data.dropna(subset=["program_length", "equipment"])
 
-# rep-based only; cap at 12 where RPE → pct_1rm mapping is reliable
-data = data[data["reps"] > 0]
-data = data[data["reps"] <= 12].copy()
+    # rep-based only; cap at 12 where RPE → pct_1rm mapping is reliable
+    data = data[data["reps"] > 0]
+    data = data[data["reps"] <= 12].copy()
 
-# Tuchscherer table covers RPE 6-10
-data = data[data["intensity"].between(6, 10)].copy()
+    # Tuchscherer table covers RPE 6-10
+    data = data[data["intensity"].between(6, 10)].copy()
 
-# sets > 10 are data entry errors
-data = data[data["sets"] <= 10].copy()
+    # sets > 10 are data entry errors
+    data = data[data["sets"] <= 10].copy()
 
-data["pct_1rm"] = data.apply(
-    lambda row: lookup_pct_1rm(row["reps"], row["intensity"]), axis=1
-)
+    data["pct_1rm"] = data.apply(
+        lambda row: lookup_pct_1rm(row["reps"], row["intensity"]), axis=1
+    )
 
-data = multihot_encode_str_list(data, "level")
-data = multihot_encode_str_list(data, "goal")
+    data = multihot_encode_str_list(data, "level")
+    data = multihot_encode_str_list(data, "goal")
 
-data = data.drop("equipment", axis=1).join(pd.get_dummies(data["equipment"]))
+    data = data.drop("equipment", axis=1).join(pd.get_dummies(data["equipment"]))
 
-le_exercise = LabelEncoder()
-data["exercise_id"] = le_exercise.fit_transform(data["exercise_name"])
-json.dump({name: int(i) for i, name in enumerate(le_exercise.classes_)},
-          open("data/exercise_map.json", "w"))
-data = data.drop(columns=["exercise_name"])
+    le_exercise = LabelEncoder()
+    data["exercise_id"] = le_exercise.fit_transform(data["exercise_name"])
+    json.dump({name: int(i) for i, name in enumerate(le_exercise.classes_)},
+              open("data/exercise_map.json", "w"))
+    data = data.drop(columns=["exercise_name"])
 
-data["week_pct"] = (data["week"] / data["program_length"]).round(3)
-data["volume"] = data["reps"] * data["sets"]
+    data["week_pct"] = (data["week"] / data["program_length"]).round(3)
+    data["volume"] = data["reps"] * data["sets"]
 
-data = data.sort_values(by=["title", "exercise_id", "week", "day"])
-for col in ["sets", "reps", "pct_1rm", "volume"]:
-    data[f"lag_{col}"] = data.groupby(["title", "exercise_id"])[col].shift(1)
+    data = data.sort_values(by=["title", "exercise_id", "week", "day"])
+    for col in ["sets", "reps", "pct_1rm", "volume"]:
+        data[f"lag_{col}"] = data.groupby(["title", "exercise_id"])[col].shift(1)
 
-data["lag_week"] = data.groupby(["title", "exercise_id"])["week"].shift(1)
-data["weeks_gap"] = data["week"] - data["lag_week"]
-data = data.drop(columns=["lag_week"])
+    data["lag_week"] = data.groupby(["title", "exercise_id"])["week"].shift(1)
+    data["weeks_gap"] = data["week"] - data["lag_week"]
+    data = data.drop(columns=["lag_week"])
 
-data = data.dropna(subset=["lag_sets", "lag_reps", "lag_pct_1rm", "lag_volume"])
-data = data[data["weeks_gap"] <= 4]
+    data = data.dropna(subset=["lag_sets", "lag_reps", "lag_pct_1rm", "lag_volume"])
+    data = data[data["weeks_gap"] <= 4]
 
-le_program = LabelEncoder()
-data["program_id"] = le_program.fit_transform(data["title"])
-data = data.drop(columns=["title"])
+    le_program = LabelEncoder()
+    data["program_id"] = le_program.fit_transform(data["title"])
+    data = data.drop(columns=["title"])
 
-data["delta_sets"] = data["sets"] - data["lag_sets"]
-data["delta_reps"] = data["reps"] - data["lag_reps"]
-data["delta_pct_1rm"] = data["pct_1rm"] - data["lag_pct_1rm"]
+    data["delta_sets"] = data["sets"] - data["lag_sets"]
+    data["delta_reps"] = data["reps"] - data["lag_reps"]
+    data["delta_pct_1rm"] = data["pct_1rm"] - data["lag_pct_1rm"]
 
-unique_programs = data["program_id"].unique()
-train_programs, val_programs = train_test_split(unique_programs, test_size=0.2, random_state=42)
+    unique_programs = data["program_id"].unique()
+    train_programs, val_programs = train_test_split(unique_programs, test_size=0.2, random_state=42)
 
-train = data[data["program_id"].isin(train_programs)]
-val   = data[data["program_id"].isin(val_programs)]
+    train = data[data["program_id"].isin(train_programs)]
+    val   = data[data["program_id"].isin(val_programs)]
 
-train.to_csv("data/train.csv", index=False)
-val.to_csv("data/val.csv", index=False)
-data.to_csv(CLEAN_DATASET_PATH, index=False)
+    train.to_csv("data/train.csv", index=False)
+    val.to_csv("data/val.csv", index=False)
+    data.to_csv(CLEAN_DATASET_PATH, index=False)
 
-print(f"Train: {len(train):,} rows | {len(train_programs)} programs")
-print(f"Val:   {len(val):,} rows | {len(val_programs)} programs")
+    print(f"Train: {len(train):,} rows | {len(train_programs)} programs")
+    print(f"Val:   {len(val):,} rows | {len(val_programs)} programs")
+
+
+if __name__ == "__main__":
+    preprocess()

@@ -2,7 +2,7 @@ services:
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.11.1
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - mlflow_data:/mlflow
     command: >
@@ -12,12 +12,43 @@ services:
       --serve-artifacts
       --host 0.0.0.0
       --port 5000
-      --allowed-hosts "mlflow,mlflow:5000,localhost,localhost:5000"
+      --allowed-hosts "mlflow,mlflow:5000,localhost,localhost:5001"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  prefect:
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0
+    ports:
+      - "4200:4200"
+    environment:
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_UI_API_URL: http://localhost:4200/api
+      PREFECT_API_DATABASE_CONNECTION_URL: sqlite+aiosqlite:////prefect/prefect.db?timeout=30
+    volumes:
+      - prefect_data:/prefect
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build: .
+    command: prefect worker start --pool default-agent-pool
+    environment:
+      PREFECT_API_URL: http://prefect:4200/api
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      prefect:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
 
   api:
     build: .
@@ -31,3 +62,4 @@ services:
 
 volumes:
   mlflow_data:
+  prefect_data:

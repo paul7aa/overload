@@ -1,6 +1,12 @@
+import os
 import mlflow
 import optuna
-from train import train, EXPERIMENT_NAME
+from train import train, _load_data, EXPERIMENT_NAME
+
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+
+_train_X, _train_Y, _val_X, _val_Y = _load_data()
+
 
 def objective(trial : optuna.Trial):
     params = {
@@ -14,7 +20,7 @@ def objective(trial : optuna.Trial):
         "n_jobs":            -1,
     }
 
-    return train(f"trial_{trial.number}", params)
+    return train(f"trial_{trial.number}", params, _train_X, _train_Y, _val_X, _val_Y)
 
 
 mlflow.set_experiment(EXPERIMENT_NAME)
