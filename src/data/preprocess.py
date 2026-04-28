@@ -48,12 +48,18 @@ Targets (week-over-week deltas — what the model predicts)
 """
 
 import ast
+import logging
 import pandas as pd
-from data.consts import lookup_pct_1rm
+from data.consts import lookup_pct_1rm, GOAL_COL_MAP, EQUIPMENT_COL_MAP
+from sqlalchemy import create_engine
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 from sklearn.model_selection import train_test_split
 import json
+import os
 
+logger = logging.getLogger(__name__)
+
+DATABASE_URL = os.environ.get("DATABASE_URL", None)
 DATASET_PATH = "data/programs_detailed.csv"
 CLEAN_DATASET_PATH = "data/programs_detailed_cleaned.csv"
 
@@ -68,9 +74,65 @@ def multihot_encode_str_list(df: pd.DataFrame, col: str) -> pd.DataFrame:
     )
     return df.drop(columns=[col]).join(encoded)
 
+def load_user_logs() -> pd.DataFrame:
+    if not DATABASE_URL:
+        logger.warning("DATABASE_URL not set — skipping user log ingestion")
+        return None
+    try:
+        engine = create_engine(DATABASE_URL)
+        df = pd.read_sql("SELECT * FROM workout_logs", engine)
+        logger.info("Loaded %d user log rows from Postgres", len(df))
+        df["sample_weight"] = 50.0
+        return df
+    except Exception as e:
+        logger.warning("Could not load user logs from Postgres: %s", e)
+        return None
+
+
+def process_user_logs(raw_df: pd.DataFrame, exercise_map: dict) -> pd.DataFrame:
+    """Convert raw workout_logs rows into the same column schema as Boostcamp train data."""
+    df = raw_df.copy()
+
+    # Drop rows whose exercise isn't in the model's known vocabulary
+    before = len(df)
+    df = df[df["exercise"].isin(exercise_map)]
+    if len(df) < before:
+        logger.warning("Dropped %d user log rows with unknown exercises", before - len(df))
+
+    # Tuchscherer table covers RPE 6-10, reps 1-12
+    df = df[
+        df["rpe"].between(6, 10) & df["reps"].between(1, 12) &
+        df["lag_rpe"].between(6, 10) & df["lag_reps"].between(1, 12)
+    ]
+
+    if df.empty:
+        return df
+
+    df["exercise_id"]   = df["exercise"].map(exercise_map)
+    df["pct_1rm"]       = df.apply(lambda r: lookup_pct_1rm(r["reps"],     r["rpe"]),     axis=1)
+    df["lag_pct_1rm"]   = df.apply(lambda r: lookup_pct_1rm(r["lag_reps"], r["lag_rpe"]), axis=1)
+    df["lag_volume"]    = df["lag_sets"] * df["lag_reps"]
+    df["volume"]        = df["sets"] * df["reps"]
+    df["week_pct"]      = (df["week"] / df["program_length"]).round(3)
+    df["delta_sets"]    = df["sets"] - df["lag_sets"]
+    df["delta_reps"]    = df["reps"] - df["lag_reps"]
+    df["delta_pct_1rm"] = df["pct_1rm"] - df["lag_pct_1rm"]
+    df["intensity"]     = df["rpe"]   # kept so train.py DROP_COLS stays consistent
+    df["program_id"]    = -1          # dummy — dropped by train.py
+
+    df = df.rename(columns={**GOAL_COL_MAP, **EQUIPMENT_COL_MAP})
+
+    drop_cols = ["id", "user_id", "logged_at", "one_rm", "exercise", "rpe", "reps", "sets"]
+    df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+
+    logger.info("Processed %d user log rows into training format", len(df))
+    return df
+      
 
 def preprocess():
+    logger.info("Loading dataset from %s", DATASET_PATH)
     data = pd.read_csv(DATASET_PATH)
+    logger.info("Loaded %d raw rows", len(data))
 
     data = data.drop(columns=["description", "created", "last_edit"])
     data = data.drop_duplicates()
@@ -85,6 +147,7 @@ def preprocess():
 
     # sets > 10 are data entry errors
     data = data[data["sets"] <= 10].copy()
+    logger.info("%d rows after cleaning", len(data))
 
     data["pct_1rm"] = data.apply(
         lambda row: lookup_pct_1rm(row["reps"], row["intensity"]), axis=1
@@ -122,20 +185,34 @@ def preprocess():
     data["delta_sets"] = data["sets"] - data["lag_sets"]
     data["delta_reps"] = data["reps"] - data["lag_reps"]
     data["delta_pct_1rm"] = data["pct_1rm"] - data["lag_pct_1rm"]
+    logger.info("%d rows after feature engineering", len(data))
 
     unique_programs = data["program_id"].unique()
     train_programs, val_programs = train_test_split(unique_programs, test_size=0.2, random_state=42)
 
-    train = data[data["program_id"].isin(train_programs)]
-    val   = data[data["program_id"].isin(val_programs)]
+    train = data[data["program_id"].isin(train_programs)].copy()
+    val   = data[data["program_id"].isin(val_programs)].copy()
+
+    # Boostcamp rows get weight 1.0; user log rows get 50.0 (set in load_user_logs)
+    train["sample_weight"] = 1.0
+    val["sample_weight"]   = 1.0
+
+    raw_logs = load_user_logs()
+    if raw_logs is not None and not raw_logs.empty:
+        exercise_map_dict = json.load(open("data/exercise_map.json"))
+        user_logs = process_user_logs(raw_logs, exercise_map_dict)
+        if not user_logs.empty:
+            train = pd.concat([train, user_logs], axis=0, ignore_index=True)
+            logger.info("Appended %d user log rows to train set", len(user_logs))
 
     train.to_csv("data/train.csv", index=False)
     val.to_csv("data/val.csv", index=False)
     data.to_csv(CLEAN_DATASET_PATH, index=False)
 
-    print(f"Train: {len(train):,} rows | {len(train_programs)} programs")
-    print(f"Val:   {len(val):,} rows | {len(val_programs)} programs")
+    logger.info("Train: %d rows | %d programs", len(train), len(train_programs))
+    logger.info("Val:   %d rows | %d programs", len(val), len(val_programs))
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
     preprocess()

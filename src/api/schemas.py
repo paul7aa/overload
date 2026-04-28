@@ -57,6 +57,54 @@ class PredictResponse(BaseModel):
     next_reps: int
     next_weight_kg: float
 
+
+class LogRequest(BaseModel):
+    user_id: str
+
+    # Exercise being logged
+    exercise: str
+    one_rm: float
+
+    # Program context
+    week: int
+    day: int
+    program_length: int
+    time_per_workout: float
+    number_of_exercises: int
+    weeks_gap: int = 1
+
+    # Last session (lag — what the model was given as input)
+    lag_sets: int
+    lag_reps: float
+    lag_rpe: float
+
+    # This session (actual outcome — what the user actually did)
+    sets: int
+    reps: float
+    rpe: float
+
+    # Fitness level flags
+    level_Advanced: int = 0
+    level_Beginner: int = 0
+    level_Intermediate: int = 0
+    level_Novice: int = 0
+
+    # Goal flags
+    goal_at_home_calisthenics: int = 0
+    goal_athletics: int = 0
+    goal_bodybuilding: int = 0
+    goal_bodyweight_fitness: int = 0
+    goal_muscle_sculpting: int = 0
+    goal_olympic_weightlifting: int = 0
+    goal_powerbuilding: int = 0
+    goal_powerlifting: int = 0
+
+    # Equipment flags
+    equipment_at_home: int = 0
+    equipment_dumbbell_only: int = 0
+    equipment_full_gym: int = 0
+    equipment_garage_gym: int = 0
+
 # Maps Pydantic field names -> training DataFrame column names.
 # Needed because pandas column names can contain spaces and special characters
 # that aren't valid Python identifiers.

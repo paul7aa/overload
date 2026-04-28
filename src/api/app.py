@@ -8,7 +8,8 @@ from fastapi import FastAPI, HTTPException
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.utils import load_model, load_exercise_map, MODEL_NAME, ALIAS_PROD
-from api.schemas import PredictRequest, PredictResponse, _FIELD_TO_COL, _FEATURE_COLS
+from api.schemas import PredictRequest, PredictResponse, LogRequest, _FIELD_TO_COL, _FEATURE_COLS
+from api.db import SessionLocal, WorkoutLog, create_tables
 from data.consts import lookup_pct_1rm
 
 _model = None
@@ -19,6 +20,7 @@ _exercise_map: dict[str, int] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _model, _version, _exercise_map
+    create_tables()
     _model, _version = load_model()
     _exercise_map = load_exercise_map()
     yield
@@ -75,6 +77,22 @@ def predict(req: PredictRequest):
         next_reps=max(1, min(12, round(req.lag_reps + delta_reps))),
         next_weight_kg=round((lag_pct_1rm + delta_pct_1rm) * req.one_rm, 2),
     )
+
+@app.post("/log", status_code=201)
+def log_session(req: LogRequest):
+    db = SessionLocal()
+    try:
+        entry = WorkoutLog(**req.model_dump())
+        db.add(entry)
+        db.commit()
+        db.refresh(entry)
+        return {"id": entry.id, "status": "logged"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(500, f"Failed to log session: {exc}")
+    finally:
+        db.close()
+
 
 @app.post("/reload")
 def reload():

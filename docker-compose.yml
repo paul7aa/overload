@@ -36,12 +36,23 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres:
+    image: postgres:16
+    env_file: .env
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U overload -d overload"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   worker:
     build: .
     command: prefect worker start --pool default-agent-pool
-    environment:
-      PREFECT_API_URL: http://prefect:4200/api
-      MLFLOW_TRACKING_URI: http://mlflow:5000
+    env_file: .env
     volumes:
       - ./data:/app/data
     depends_on:
@@ -49,17 +60,21 @@ services:
         condition: service_healthy
       mlflow:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   api:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
+    env_file: .env
     depends_on:
       mlflow:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
 volumes:
   mlflow_data:
   prefect_data:
+  postgres_data:

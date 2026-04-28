@@ -1,6 +1,9 @@
 import os
+import logging
 import mlflow
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
 from lightgbm import LGBMRegressor
@@ -10,26 +13,27 @@ from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_sco
 EXPERIMENT_NAME = "overload-predictor"
 
 TARGETS   = ["delta_sets", "delta_reps", "delta_pct_1rm"]
-DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume"] + TARGETS
+DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume", "sample_weight"] + TARGETS
 WEIGHTS   = {"delta_pct_1rm": 0.50, "delta_reps": 0.35, "delta_sets": 0.15}
 
 def _load_data():
     train_data = pd.read_csv("data/train.csv")
     val_data   = pd.read_csv("data/val.csv")
-    train_X = train_data.drop(columns=DROP_COLS)
+    train_weights = train_data["sample_weight"] if "sample_weight" in train_data.columns else None
+    train_X = train_data.drop(columns=DROP_COLS, errors="ignore")
     train_Y = train_data[TARGETS]
-    val_X   = val_data.drop(columns=DROP_COLS)
+    val_X   = val_data.drop(columns=DROP_COLS, errors="ignore")
     val_Y   = val_data[TARGETS]
-    return train_X, train_Y, val_X, val_Y
+    return train_X, train_Y, val_X, val_Y, train_weights
 
 
-def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y):
+def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y, train_weights=None):
     model = MultiOutputRegressor(LGBMRegressor(**hyperparams))
 
     with mlflow.start_run(run_name=run_name, nested=True):
         mlflow.log_params(hyperparams)
 
-        model.fit(train_X, train_Y)
+        model.fit(train_X, train_Y, sample_weight=train_weights)
 
         val_preds = model.predict(val_X)
 
@@ -47,7 +51,7 @@ def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y):
             mlflow.log_metric(f"val_r2_{target}",       round(r2,      4))
             mlflow.log_metric(f"val_dir_acc_{target}",  round(dir_acc, 4))
 
-            print(f"{target}: RMSE={rmse:.4f}  MAE={mae:.4f}  R²={r2:.4f}  DirAcc={dir_acc:.4f}")
+            logger.info("%s: RMSE=%.4f  MAE=%.4f  R²=%.4f  DirAcc=%.4f", target, rmse, mae, r2, dir_acc)
 
         mlflow.sklearn.log_model(model, name="model")
 
@@ -72,7 +76,7 @@ def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y):
 
 def run_training():
     mlflow.set_experiment(EXPERIMENT_NAME)
-    train_X, train_Y, val_X, val_Y = _load_data()
+    train_X, train_Y, val_X, val_Y, train_weights = _load_data()
     hyperparams = {
         "n_estimators":      531,
         "learning_rate":     0.016,
@@ -83,7 +87,7 @@ def run_training():
         "random_state":      42,
         "n_jobs":            -1,
     }
-    train("training", hyperparams, train_X, train_Y, val_X, val_Y)
+    train("training", hyperparams, train_X, train_Y, val_X, val_Y, train_weights)
 
 
 if __name__ == "__main__":

@@ -21,3 +21,23 @@ def lookup_pct_1rm(reps: float, rpe: float) -> float | None:
         return None
     return RPE_TABLE[r][e] / 100.0
 
+
+# Maps LogRequest field names → Boostcamp training column names
+GOAL_COL_MAP = {
+    "goal_at_home_calisthenics":  "goal_At-Home & Calisthenics",
+    "goal_athletics":             "goal_Athletics",
+    "goal_bodybuilding":          "goal_Bodybuilding",
+    "goal_bodyweight_fitness":    "goal_Bodyweight Fitness",
+    "goal_muscle_sculpting":      "goal_Muscle & Sculpting",
+    "goal_olympic_weightlifting": "goal_Olympic Weightlifting",
+    "goal_powerbuilding":         "goal_Powerbuilding",
+    "goal_powerlifting":          "goal_Powerlifting",
+}
+
+EQUIPMENT_COL_MAP = {
+    "equipment_at_home":       "At Home",
+    "equipment_dumbbell_only": "Dumbbell Only",
+    "equipment_full_gym":      "Full Gym",
+    "equipment_garage_gym":    "Garage Gym",
+}
+
