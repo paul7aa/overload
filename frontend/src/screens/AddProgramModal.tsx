@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView, Pressable, ScrollView, StyleSheet,
   Text, TextInput, View,
@@ -31,7 +31,9 @@ export default function AddProgramModal({ navigation, route }: Props) {
   const editing = route.params?.program;
   const { bottom } = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
-  navigation.setOptions({ title: editing ? 'Edit Program' : 'New Program' });
+  useEffect(() => {
+    navigation.setOptions({ title: editing ? 'Edit Program' : 'New Program' });
+  }, []);
   const [step, setStep] = useState(1);
   const [name, setName] = useState(editing?.name ?? '');
   const [level, setLevel] = useState<string[]>(editing?.level ?? []);

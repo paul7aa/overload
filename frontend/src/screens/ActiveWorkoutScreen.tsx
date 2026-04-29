@@ -1,6 +1,6 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -14,6 +14,17 @@ const RPE_LABELS: Record<number, string> = {
   8: 'Hard', 8.5: 'Very Hard', 9: 'Very Hard+', 9.5: 'Near Max', 10: 'Max Effort',
 };
 
+function WorkoutTimer() {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const ss = String(elapsed % 60).padStart(2, '0');
+  return <Text style={{ color: colors.secondary, fontSize: 14 }}>Workout · {mm}:{ss}</Text>;
+}
+
 export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const { program } = route.params;
   const { bottom } = useSafeAreaInsets();
@@ -21,10 +32,15 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [weekNumber, setWeekNumber] = useState(1);
-  const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentWeight, setCurrentWeight] = useState('');
   const [currentReps, setCurrentReps] = useState(0);
   const [currentRpe, setCurrentRpe] = useState(8);
+  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState('');
+  const [editReps, setEditReps] = useState(0);
+  const [editRpe, setEditRpe] = useState(8);
+  const isFinishing = useRef(false);
+  const startTime = useRef(0);
 
   useEffect(() => {
     AsyncStorage.getItem(`week_${program.id}`).then(val => {
@@ -38,25 +54,43 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
       return;
     }
     navigation.setOptions({
-      headerLeft: () => (
+      headerBackVisible: false,
+      headerLeft: () => null,
+      headerTitle: () => <WorkoutTimer />,
+      headerRight: () => (
         <Pressable
-          style={{ paddingRight: 12 }}
+          style={{ paddingLeft: 12 }}
           onPress={() => Alert.alert('Exit Workout?', 'Your progress will be lost.', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
           ])}
         >
-          <Text style={styles.exitBtn}>Exit</Text>
+          <Text style={styles.exitBtn}>✕</Text>
         </Pressable>
       ),
     });
   }, [selectedDay, navigation]);
 
-  // Reset current-set state when moving to a new exercise
+
+  // Intercept all back gestures and hardware back button during a workout
+  useEffect(() => {
+    if (!selectedDay) return;
+    return navigation.addListener('beforeRemove', e => {
+      if (isFinishing.current) return;
+      e.preventDefault();
+      Alert.alert('Exit Workout?', 'Your progress will be lost.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Exit', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+      ]);
+    });
+  }, [selectedDay, navigation]);
+
+  // Reset input state when moving to a new exercise
   useEffect(() => {
     if (!logs.length) return;
-    setCurrentSetIndex(0);
-    const set = logs[exerciseIndex]?.sets[0];
+    const idx = logs[exerciseIndex]?.sets.filter(s => s.weight > 0).length ?? 0;
+    const set = logs[exerciseIndex]?.sets[idx];
+    setEditingSetIndex(null);
     if (set) {
       setCurrentReps(set.reps);
       setCurrentRpe(set.rpe);
@@ -79,9 +113,9 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
                   dayNumber: day.dayNumber,
                   sets: Array.from({ length: ex.sets }, () => ({ reps: ex.reps, rpe: 8, weight: 0 })),
                 }));
+                startTime.current = Date.now();
                 setLogs(newLogs);
                 setExerciseIndex(0);
-                setCurrentSetIndex(0);
                 const first = newLogs[0]?.sets[0];
                 if (first) { setCurrentReps(first.reps); setCurrentRpe(first.rpe); setCurrentWeight(''); }
                 setSelectedDay(day);
@@ -106,15 +140,42 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const currentLog = logs[exerciseIndex];
   const ex: ProgramExercise = currentLog.exercise;
   const isLast = exerciseIndex === logs.length - 1;
+  // Derived from logs — weight > 0 means the set was completed
+  const currentSetIndex = currentLog.sets.filter(s => s.weight > 0).length;
   const allSetsComplete = currentSetIndex >= currentLog.sets.length;
 
+  const openEditSet = (si: number) => {
+    const set = currentLog.sets[si];
+    setEditingSetIndex(si);
+    setEditWeight(set.weight > 0 ? String(set.weight) : '');
+    setEditReps(set.reps);
+    setEditRpe(set.rpe);
+  };
+
+  const saveEditedSet = () => {
+    if (editingSetIndex === null) return;
+    const weight = parseFloat(editWeight) || 0;
+    setLogs(prev => prev.map((log, i) => {
+      if (i !== exerciseIndex) return log;
+      const sets = log.sets.map((s, si) =>
+        si === editingSetIndex ? { reps: editReps, rpe: editRpe, weight } : s
+      );
+      return { ...log, sets };
+    }));
+    setEditingSetIndex(null);
+  };
+
   const completeSet = () => {
-    const weight = parseFloat(currentWeight) || 0;
+    const weight = parseFloat(currentWeight);
+    if (!currentWeight.trim() || isNaN(weight) || weight <= 0) {
+      Alert.alert('Weight required', 'Enter the weight used before completing this set.');
+      return;
+    }
     const nextIdx = currentSetIndex + 1;
     setLogs(prev => prev.map((log, i) => {
       if (i !== exerciseIndex) return log;
       const sets = log.sets.map((s, si) =>
-        si === currentSetIndex ? { reps: currentReps, rpe: currentRpe, weight } : s
+        si === currentSetIndex ? { reps: currentReps, rpe: currentRpe, weight: weight } : s
       );
       return { ...log, sets };
     }));
@@ -122,13 +183,58 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
       const next = currentLog.sets[nextIdx];
       setCurrentReps(next.reps);
       setCurrentRpe(next.rpe);
-      setCurrentWeight('');
+      setCurrentWeight(currentWeight); // carry weight from previous set
     }
-    setCurrentSetIndex(nextIdx);
+  };
+
+  const workoutComplete = logs.every(log => log.sets.every(s => s.weight > 0));
+
+  const finishWorkout = () => {
+    const doFinish = () => {
+      isFinishing.current = true;
+      const durationSeconds = Math.floor((Date.now() - startTime.current) / 1000);
+      navigation.replace('WorkoutComplete', { logs, program, durationSeconds });
+    };
+    if (workoutComplete) {
+      doFinish();
+    } else {
+      Alert.alert(
+        'Finish early?',
+        "Some sets haven't been completed. Finish anyway?",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Finish', style: 'destructive', onPress: doFinish },
+        ]
+      );
+    }
   };
 
   return (
     <View style={styles.container}>
+      {/* Tab bar — tap any exercise to jump to it */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabBar}
+        contentContainerStyle={styles.tabBarContent}
+      >
+        {logs.map((log, i) => {
+          const done = log.sets.every(s => s.weight > 0);
+          const active = i === exerciseIndex;
+          return (
+            <Pressable
+              key={i}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => setExerciseIndex(i)}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                {done ? '✓ ' : ''}{log.exercise.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <View style={styles.exerciseHeader}>
         <Text style={styles.exerciseCounter}>{exerciseIndex + 1} / {logs.length}</Text>
         <Text style={styles.exerciseName}>{ex.name}</Text>
@@ -143,17 +249,79 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
         <Text style={styles.targetWeight}>— kg</Text>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.setList} keyboardShouldPersistTaps="handled">
-        {currentLog.sets.slice(0, currentSetIndex).map((set, si) => (
-          <View key={si} style={styles.completedSet}>
-            <Text style={styles.completedSetNum}>Set {si + 1}</Text>
-            <Text style={styles.completedSetDetail}>{set.weight > 0 ? `${set.weight} kg` : '— kg'}</Text>
-            <Text style={styles.completedSetDetail}>{set.reps} reps</Text>
-            <Text style={styles.completedSetDetail}>RPE {set.rpe}</Text>
-          </View>
-        ))}
+        {currentLog.sets.slice(0, currentSetIndex).map((set, si) =>
+          editingSetIndex === si ? (
+            <View key={si} style={styles.activeSet}>
+              <View style={styles.editSetHeader}>
+                <Text style={styles.activeSetNum}>Editing Set {si + 1}</Text>
+                <Pressable onPress={() => setEditingSetIndex(null)}>
+                  <Text style={styles.cancelEditBtn}>Cancel</Text>
+                </Pressable>
+              </View>
 
-        {!allSetsComplete && (
+              <View style={styles.inputRow}>
+                <Text style={styles.inputLabel}>Weight (kg)</Text>
+                <TextInput
+                  style={styles.weightInput}
+                  value={editWeight}
+                  onChangeText={setEditWeight}
+                  keyboardType="numeric"
+                  placeholder="—"
+                  placeholderTextColor={colors.secondary}
+                  returnKeyType="done"
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.inputRow}>
+                <Text style={styles.inputLabel}>Reps</Text>
+                <View style={styles.repsStepper}>
+                  <Pressable style={styles.stepBtn} onPress={() => setEditReps(r => Math.max(1, r - 1))}>
+                    <Text style={styles.stepBtnText}>−</Text>
+                  </Pressable>
+                  <Text style={styles.repsValue}>{editReps}</Text>
+                  <Pressable style={styles.stepBtn} onPress={() => setEditReps(r => r + 1)}>
+                    <Text style={styles.stepBtnText}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.rpeSection}>
+                <View style={styles.rpeLabelRow}>
+                  <Text style={styles.inputLabel}>RPE</Text>
+                  <Text style={styles.rpeValue}>{editRpe} — {RPE_LABELS[editRpe]}</Text>
+                </View>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={6}
+                  maximumValue={10}
+                  step={0.5}
+                  value={editRpe}
+                  onValueChange={v => setEditRpe(v)}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor={colors.border}
+                  thumbTintColor={colors.accent}
+                />
+              </View>
+
+              <Pressable style={styles.saveEditBtn} onPress={saveEditedSet}>
+                <Text style={styles.saveEditBtnText}>Save Changes</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable key={si} style={styles.completedSet} onPress={() => openEditSet(si)}>
+              <Text style={styles.completedSetNum}>Set {si + 1}</Text>
+              <Text style={styles.completedSetDetail}>{set.weight > 0 ? `${set.weight} kg` : '— kg'}</Text>
+              <Text style={styles.completedSetDetail}>{set.reps} reps</Text>
+              <Text style={styles.completedSetDetail}>RPE {set.rpe}</Text>
+              <Text style={styles.editHint}>✎</Text>
+            </Pressable>
+          )
+        )}
+
+        {!allSetsComplete && editingSetIndex === null && (
           <View style={styles.activeSet}>
             <Text style={styles.activeSetNum}>Set {currentSetIndex + 1} of {currentLog.sets.length}</Text>
 
@@ -206,31 +374,23 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottom || 16 }]}>
-        {allSetsComplete ? (
-          <>
-            {exerciseIndex > 0 && (
-              <Pressable style={styles.backBtn} onPress={() => setExerciseIndex(i => i - 1)}>
-                <Text style={styles.backBtnText}>← Back</Text>
-              </Pressable>
-            )}
-            <Pressable
-              style={[styles.nextBtn, isLast && styles.finishBtn]}
-              onPress={() => isLast
-                ? navigation.replace('WorkoutComplete', { logs, program })
-                : setExerciseIndex(i => i + 1)
-              }
-            >
-              <Text style={[styles.nextBtnText, isLast && { color: colors.background }]}>
-                {isLast ? 'Finish Workout' : 'Next →'}
-              </Text>
-            </Pressable>
-          </>
-        ) : (
+        {!allSetsComplete && editingSetIndex === null && (
           <Pressable style={styles.completeSetBtn} onPress={completeSet}>
             <Text style={styles.completeSetBtnText}>✓  Complete Set {currentSetIndex + 1}</Text>
           </Pressable>
         )}
+        <View style={styles.footerRow}>
+          {!allSetsComplete && editingSetIndex === null && (
+            <Pressable style={styles.skipBtn} onPress={() => setExerciseIndex(i => isLast ? i : i + 1)}>
+              <Text style={styles.skipBtnText}>Skip</Text>
+            </Pressable>
+          )}
+          <Pressable style={[styles.finishBtn, allSetsComplete && styles.finishBtnComplete]} onPress={finishWorkout}>
+            <Text style={[styles.finishBtnText, allSetsComplete && styles.finishBtnTextComplete]}>Finish Workout</Text>
+          </Pressable>
+        </View>
       </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -248,10 +408,20 @@ const styles = StyleSheet.create({
   dayExerciseName: { ...typography.caption, flex: 1 },
   dayExerciseSets: { ...typography.caption, color: colors.secondary },
 
+  // tab bar
+  tabBar: { borderBottomWidth: 1, borderBottomColor: colors.border, flexGrow: 0 },
+  tabBarContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  tab: { minWidth: 80, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  tabActive: { borderColor: colors.accent, backgroundColor: colors.accent + '18' },
+  tabText: { ...typography.caption, fontSize: 12 },
+  tabTextActive: { color: colors.accent, fontWeight: '600' as const },
+
   // header
   exitBtn: { color: colors.secondary, fontSize: 15 },
   exerciseHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  exerciseCounter: { ...typography.caption, marginBottom: 4 },
+  exerciseHeaderTop: { flexDirection: 'row' as const, justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  exerciseCounter: { ...typography.caption },
+  timerText: { ...typography.caption, fontWeight: '600' as const, color: colors.primary },
   exerciseName: { ...typography.heading, fontSize: 24, marginBottom: 2 },
   exerciseMuscle: { ...typography.caption },
 
@@ -269,6 +439,13 @@ const styles = StyleSheet.create({
   completedSet: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.border, opacity: 0.7 },
   completedSetNum: { ...typography.caption, width: 44 },
   completedSetDetail: { ...typography.caption, flex: 1, textAlign: 'center' },
+  editHint: { ...typography.caption, color: colors.secondary, fontSize: 14 },
+
+  // inline set editor
+  editSetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cancelEditBtn: { ...typography.caption, color: colors.secondary },
+  saveEditBtn: { backgroundColor: colors.accent, borderRadius: 8, padding: 12, alignItems: 'center' },
+  saveEditBtnText: { color: colors.background, fontWeight: '700' as const, fontSize: 14 },
 
   // active set card
   activeSet: { backgroundColor: colors.surface, borderRadius: 10, padding: 16, gap: 20, borderWidth: 1, borderColor: colors.accent },
@@ -276,7 +453,7 @@ const styles = StyleSheet.create({
 
   // inputs
   inputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inputLabel: { ...typography.caption },
+  inputLabel: { ...typography.caption, fontSize: 16 },
   weightInput: {
     width: 100, height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
     backgroundColor: colors.background, color: colors.primary,
@@ -292,17 +469,20 @@ const styles = StyleSheet.create({
   // RPE
   rpeSection: { gap: 4 },
   rpeLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rpeValue: { ...typography.caption, color: colors.primary },
-  rpeHint: { ...typography.caption, fontSize: 11, lineHeight: 16 },
+  rpeValue: { ...typography.caption, fontSize: 16, color: colors.primary },
+  rpeHint: { ...typography.caption, fontSize: 13, lineHeight: 18 },
   slider: { width: '100%' as const, height: 40 },
 
   // footer
-  footer: { flexDirection: 'row', gap: 10, padding: 16 },
-  completeSetBtn: { flex: 1, padding: 16, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' },
+  footer: { gap: 8, padding: 16 },
+  footerRow: { flexDirection: 'row' as const, gap: 8 },
+  completeSetBtn: { padding: 16, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' as const },
   completeSetBtnText: { color: colors.background, fontSize: 15, fontWeight: '700' as const },
-  backBtn: { flex: 1, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  backBtnText: { color: colors.primary, fontSize: 15 },
-  nextBtn: { flex: 2, padding: 16, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  finishBtn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  skipBtn: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' as const },
+  skipBtnText: { color: colors.secondary, fontSize: 14 },
+  finishBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' as const },
+  finishBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' as const },
+  finishBtnComplete: { backgroundColor: colors.accent, borderColor: colors.accent },
+  finishBtnTextComplete: { color: colors.background },
   nextBtnText: { color: colors.accent, fontSize: 15, fontWeight: '700' as const },
 });

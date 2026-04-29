@@ -38,9 +38,25 @@ export type ExerciseLog = {
   sets: SetLog[];
 };
 
+export type WorkoutRecord = {
+  id: string;
+  programId: string;
+  programName: string;
+  dayNumber: number;
+  weekNumber: number;
+  durationSeconds: number;
+  completedAt: string;
+  exercises: {
+    name: string;
+    muscle: string;
+    sets: { weight: number; reps: number; rpe: number }[];
+  }[];
+};
+
 export type RootStackParamList = {
   Home: undefined;
   ActiveWorkout: { program: Program };
-  WorkoutComplete: { logs: ExerciseLog[]; program: Program };
+  WorkoutComplete: { logs: ExerciseLog[]; program: Program; durationSeconds: number; weekNumber: number };
+  WorkoutHistory: undefined;
   AddProgram: { program?: Program };
 };

@@ -75,9 +75,14 @@ export default function HomeScreen({ navigation }: Props) {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: top + 16 }]}>
         <Text style={styles.title}>overload</Text>
-        <Pressable style={styles.addBtn} onPress={() => { closeAll(); navigation.navigate('AddProgram', {}); }}>
-          <Text style={styles.addBtnText}>+ Add</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => navigation.navigate('WorkoutHistory')}>
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
+          </Pressable>
+          <Pressable style={styles.addBtn} onPress={() => { closeAll(); navigation.navigate('AddProgram', {}); }}>
+            <Text style={styles.addBtnText}>+ Add</Text>
+          </Pressable>
+        </View>
       </View>
 
       {programs.length === 0 ? (
@@ -150,6 +155,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: { ...typography.heading, fontSize: 26 },
+  headerActions: { flexDirection: 'row' as const, alignItems: 'center', gap: 12 },
   addBtn: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   addBtnText: { color: colors.primary, fontSize: 14 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },

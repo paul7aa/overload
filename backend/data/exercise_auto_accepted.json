@@ -1,0 +1,862 @@
+[
+  {
+    "training": "(Dumbbell) Calf Raise (Single Leg)",
+    "canonical": "dumbbell single leg calf raise"
+  },
+  {
+    "training": "45-degree Side Bend",
+    "canonical": "45\u00b0 side bend"
+  },
+  {
+    "training": "Air Bike",
+    "canonical": "air bike"
+  },
+  {
+    "training": "Archer Pull Up",
+    "canonical": "archer pull up"
+  },
+  {
+    "training": "Archer Push Up",
+    "canonical": "archer push up"
+  },
+  {
+    "training": "Balance Board",
+    "canonical": "balance board"
+  },
+  {
+    "training": "Barbell Curls",
+    "canonical": "barbell curl"
+  },
+  {
+    "training": "Barbell Front Raise",
+    "canonical": "barbell front raise"
+  },
+  {
+    "training": "Barbell Front Raises",
+    "canonical": "barbell front raise"
+  },
+  {
+    "training": "Barbell Glute Bridge",
+    "canonical": "barbell glute bridge"
+  },
+  {
+    "training": "Barbell Hack Squat",
+    "canonical": "barbell hack squat"
+  },
+  {
+    "training": "Barbell Reverse Curl",
+    "canonical": "barbell reverse curl"
+  },
+  {
+    "training": "Barbell Sumo Deadlift",
+    "canonical": "barbell sumo deadlift"
+  },
+  {
+    "training": "Bear Crawl",
+    "canonical": "bear crawl"
+  },
+  {
+    "training": "Bench Press (Barbell)",
+    "canonical": "barbell bench press"
+  },
+  {
+    "training": "Bench Press (Dumbbell)",
+    "canonical": "dumbbell bench press"
+  },
+  {
+    "training": "Bench Press - Cable",
+    "canonical": "cable bench press"
+  },
+  {
+    "training": "Bent Over Row (Barbell)",
+    "canonical": "barbell bent over row"
+  },
+  {
+    "training": "Bent Over Row (Dumbbell)",
+    "canonical": "dumbbell bent over row"
+  },
+  {
+    "training": "Bicep Curl (Dumbbell)",
+    "canonical": "dumbbell biceps curl"
+  },
+  {
+    "training": "Bicep Curl Incline (Dumbell)",
+    "canonical": "dumbbell incline biceps curl"
+  },
+  {
+    "training": "Bicep Pull Up",
+    "canonical": "biceps pull-up"
+  },
+  {
+    "training": "Bosu Ball Push Ups",
+    "canonical": "push-up (bosu ball)"
+  },
+  {
+    "training": "Burpee",
+    "canonical": "burpee"
+  },
+  {
+    "training": "Cable Incline Fly",
+    "canonical": "cable incline fly"
+  },
+  {
+    "training": "Cable Kickback",
+    "canonical": "cable kickback"
+  },
+  {
+    "training": "Cable Overhead Curl",
+    "canonical": "cable overhead curl"
+  },
+  {
+    "training": "Cable Preacher Curls",
+    "canonical": "cable preacher curl"
+  },
+  {
+    "training": "Cable Pushdown",
+    "canonical": "cable pushdown"
+  },
+  {
+    "training": "Cable Reverse Curl",
+    "canonical": "cable reverse curl"
+  },
+  {
+    "training": "Cable Shrugs",
+    "canonical": "cable shrug"
+  },
+  {
+    "training": "Cable Twists",
+    "canonical": "cable twist"
+  },
+  {
+    "training": "Cable Wrist Curl",
+    "canonical": "cable wrist curl"
+  },
+  {
+    "training": "Cable twists",
+    "canonical": "cable twist"
+  },
+  {
+    "training": "Close Grip Push Up",
+    "canonical": "close-grip push-up"
+  },
+  {
+    "training": "Close-Grip Push-Ups",
+    "canonical": "close-grip push-up"
+  },
+  {
+    "training": "Concentration Cable Curl",
+    "canonical": "cable concentration curl"
+  },
+  {
+    "training": "Cuban Press (Dumbbell)",
+    "canonical": "dumbbell cuban press"
+  },
+  {
+    "training": "Curl-Up",
+    "canonical": "curl-up"
+  },
+  {
+    "training": "Dead Bug",
+    "canonical": "dead bug"
+  },
+  {
+    "training": "Deadlift (Barbell)",
+    "canonical": "barbell deadlift"
+  },
+  {
+    "training": "Deadlift (Dumbbell)",
+    "canonical": "dumbbell deadlift"
+  },
+  {
+    "training": "Decline Bench Press (Barbell)",
+    "canonical": "barbell decline bench press"
+  },
+  {
+    "training": "Decline Bench Press (Dumbbell)",
+    "canonical": "dumbbell decline bench press"
+  },
+  {
+    "training": "Decline Cable Fly",
+    "canonical": "cable decline fly"
+  },
+  {
+    "training": "Decline Cable Press",
+    "canonical": "cable decline press"
+  },
+  {
+    "training": "Decline Crunch",
+    "canonical": "decline crunch"
+  },
+  {
+    "training": "Decline Flye - Dumbbell",
+    "canonical": "dumbbell decline fly"
+  },
+  {
+    "training": "Decline Push Up",
+    "canonical": "decline push-up"
+  },
+  {
+    "training": "Decline Sit Up (Weighted)",
+    "canonical": "weighted decline sit-up"
+  },
+  {
+    "training": "Diamond Push Ups",
+    "canonical": "diamond push-up"
+  },
+  {
+    "training": "Diamond Push-up",
+    "canonical": "diamond push-up"
+  },
+  {
+    "training": "Diamond Pushup",
+    "canonical": "diamond push-up"
+  },
+  {
+    "training": "Diamond push up",
+    "canonical": "diamond push-up"
+  },
+  {
+    "training": "Donkey Calf Raises",
+    "canonical": "donkey calf raise"
+  },
+  {
+    "training": "Dumbbell Push Press",
+    "canonical": "dumbbell push press"
+  },
+  {
+    "training": "Dumbbell Step Up",
+    "canonical": "dumbbell step-up"
+  },
+  {
+    "training": "Dumbell Incline Shrugs",
+    "canonical": "dumbbell incline shrug"
+  },
+  {
+    "training": "Dumbell Lateral Raise",
+    "canonical": "dumbbell lateral raise"
+  },
+  {
+    "training": "Dumbell Straight Leg Deadlift",
+    "canonical": "dumbbell straight leg deadlift"
+  },
+  {
+    "training": "Finger Curl",
+    "canonical": "finger curls"
+  },
+  {
+    "training": "Flutter Kick",
+    "canonical": "flutter kicks"
+  },
+  {
+    "training": "Flutter Kicks",
+    "canonical": "flutter kicks"
+  },
+  {
+    "training": "Forward Jump",
+    "canonical": "forward jump"
+  },
+  {
+    "training": "Front Lever",
+    "canonical": "front lever"
+  },
+  {
+    "training": "Front Raise (Cable)",
+    "canonical": "cable front raise"
+  },
+  {
+    "training": "Front Squat (Barbell)",
+    "canonical": "barbell front squat"
+  },
+  {
+    "training": "Glute Bridge (Barbell)",
+    "canonical": "barbell glute bridge"
+  },
+  {
+    "training": "Glute-Ham Raise",
+    "canonical": "glute-ham raise"
+  },
+  {
+    "training": "Hammer Curl (Dumbbell)",
+    "canonical": "dumbbell hammer curl"
+  },
+  {
+    "training": "Hammer Curl Dumbbell",
+    "canonical": "dumbbell hammer curl"
+  },
+  {
+    "training": "Hammer Curl Dumbell",
+    "canonical": "dumbbell hammer curl"
+  },
+  {
+    "training": "Hammer Preacher Curl (Dumbbell)",
+    "canonical": "dumbbell peacher hammer curl"
+  },
+  {
+    "training": "Hammer Preacher Curl (Dumbell)",
+    "canonical": "dumbbell peacher hammer curl"
+  },
+  {
+    "training": "Hamstring  Stretch",
+    "canonical": "hamstring stretch"
+  },
+  {
+    "training": "Handstand",
+    "canonical": "handstand"
+  },
+  {
+    "training": "Hanging Leg Raise",
+    "canonical": "hanging leg raise"
+  },
+  {
+    "training": "Hanging Oblique Knee Raise",
+    "canonical": "hanging oblique knee raise"
+  },
+  {
+    "training": "High Bar Squat (Barbell)",
+    "canonical": "barbell high bar squat"
+  },
+  {
+    "training": "Hyperextension",
+    "canonical": "hyperextension"
+  },
+  {
+    "training": "Inchworm",
+    "canonical": "inchworm"
+  },
+  {
+    "training": "Incline Bench Press (Barbell)",
+    "canonical": "barbell incline bench press"
+  },
+  {
+    "training": "Incline Bench Press (Cable)",
+    "canonical": "cable incline bench press"
+  },
+  {
+    "training": "Incline Bench Press (Dumbbell)",
+    "canonical": "dumbbell incline bench press"
+  },
+  {
+    "training": "Incline Bicep Curl (Dumbbell)",
+    "canonical": "dumbbell incline biceps curl"
+  },
+  {
+    "training": "Incline Cable Fly",
+    "canonical": "cable incline fly"
+  },
+  {
+    "training": "Incline Cable Flys",
+    "canonical": "cable incline fly"
+  },
+  {
+    "training": "Incline Curl (Dumbbell)",
+    "canonical": "dumbbell incline curl"
+  },
+  {
+    "training": "Incline Dumbbell Curls",
+    "canonical": "dumbbell incline curl"
+  },
+  {
+    "training": "Incline Dumbbell Row",
+    "canonical": "dumbbell incline row"
+  },
+  {
+    "training": "Incline Dumbell Bench Press",
+    "canonical": "dumbbell incline bench press"
+  },
+  {
+    "training": "Incline Fly (Cable)",
+    "canonical": "cable incline fly"
+  },
+  {
+    "training": "Incline Hammer Curl (Dumbbell)",
+    "canonical": "dumbbell incline hammer curl"
+  },
+  {
+    "training": "Incline Pushdown (Cable)",
+    "canonical": "cable incline pushdown"
+  },
+  {
+    "training": "Incline Tricep Extension (Dumbbell)",
+    "canonical": "dumbbell incline triceps extension"
+  },
+  {
+    "training": "Incline Tricep Extention (Cable)",
+    "canonical": "cable incline triceps extension"
+  },
+  {
+    "training": "Incline dumbell row",
+    "canonical": "dumbbell incline row"
+  },
+  {
+    "training": "Inverted Row",
+    "canonical": "inverted row"
+  },
+  {
+    "training": "Jump Rope",
+    "canonical": "jump rope"
+  },
+  {
+    "training": "Jump Squat",
+    "canonical": "jump squat"
+  },
+  {
+    "training": "Jump Squat (Barbell)",
+    "canonical": "barbell jump squat"
+  },
+  {
+    "training": "Kettlebell Front Squat",
+    "canonical": "kettlebell front squat"
+  },
+  {
+    "training": "Kettlebell Sumo High Pull",
+    "canonical": "kettlebell sumo high pull"
+  },
+  {
+    "training": "Kettlebell Swing",
+    "canonical": "kettlebell swing"
+  },
+  {
+    "training": "Kettlebell Swings",
+    "canonical": "kettlebell swing"
+  },
+  {
+    "training": "Kettlebell Windmill",
+    "canonical": "kettlebell windmill"
+  },
+  {
+    "training": "Lateral Raise (Cable)",
+    "canonical": "cable lateral raise"
+  },
+  {
+    "training": "Lateral Raise (Dumbbell)",
+    "canonical": "dumbbell lateral raise"
+  },
+  {
+    "training": "Low Cable Fly",
+    "canonical": "cable low fly"
+  },
+  {
+    "training": "Lunge (Barbell)",
+    "canonical": "barbell lunge"
+  },
+  {
+    "training": "Lunge (Dumbbell)",
+    "canonical": "dumbbell lunge"
+  },
+  {
+    "training": "Lunge With Twist",
+    "canonical": "lunge with twist"
+  },
+  {
+    "training": "Lying Cable Tricep Extension",
+    "canonical": "cable lying triceps extension v. 2"
+  },
+  {
+    "training": "Lying Tricep Extension (Barbell)",
+    "canonical": "barbell lying triceps extension"
+  },
+  {
+    "training": "Lying Tricep Extension (Dumbbell)",
+    "canonical": "dumbbell lying triceps extension"
+  },
+  {
+    "training": "Medicine Ball Chest Pass",
+    "canonical": "medicine ball chest pass"
+  },
+  {
+    "training": "Medicine Ball Close Grip Push Up",
+    "canonical": "medicine ball close grip push up"
+  },
+  {
+    "training": "Medicine Ball Pushups",
+    "canonical": "push-up medicine ball"
+  },
+  {
+    "training": "Monster Walk",
+    "canonical": "monster walk"
+  },
+  {
+    "training": "Monster Walks",
+    "canonical": "monster walk"
+  },
+  {
+    "training": "Mountain Climber",
+    "canonical": "mountain climber"
+  },
+  {
+    "training": "Muscle Up",
+    "canonical": "muscle up"
+  },
+  {
+    "training": "Muscle Up (Weighted)",
+    "canonical": "weighted muscle up"
+  },
+  {
+    "training": "Neutral Grip Dumbbell Bench Press",
+    "canonical": "dumbbell neutral grip bench press"
+  },
+  {
+    "training": "Neutral Grip Pull Up",
+    "canonical": "pull up (neutral grip)"
+  },
+  {
+    "training": "Oblique Crunch",
+    "canonical": "oblique crunch v. 2"
+  },
+  {
+    "training": "One Arm Cable Curl",
+    "canonical": "cable one arm curl"
+  },
+  {
+    "training": "One Arm Lateral Raise (Cable)",
+    "canonical": "cable one arm lateral raise"
+  },
+  {
+    "training": "One Arm Lateral Raise (Dumbbell)",
+    "canonical": "dumbbell one arm lateral raise"
+  },
+  {
+    "training": "Overhead Triceps Stretch",
+    "canonical": "overhead triceps stretch"
+  },
+  {
+    "training": "Pelvic Tilts",
+    "canonical": "pelvic tilt"
+  },
+  {
+    "training": "Plyo Push Up",
+    "canonical": "plyo push up"
+  },
+  {
+    "training": "Plyo Push up",
+    "canonical": "plyo push up"
+  },
+  {
+    "training": "Power Clean",
+    "canonical": "power clean"
+  },
+  {
+    "training": "Preacher Curl (Barbell)",
+    "canonical": "barbell preacher curl"
+  },
+  {
+    "training": "Preacher Curl (Cable)",
+    "canonical": "cable preacher curl"
+  },
+  {
+    "training": "Preacher Curl (Dumbbell)",
+    "canonical": "dumbbell preacher curl"
+  },
+  {
+    "training": "Pull-Up",
+    "canonical": "pull-up"
+  },
+  {
+    "training": "Pull-Up (Assisted)",
+    "canonical": "assisted pull-up"
+  },
+  {
+    "training": "Pull-Up (Weighted)",
+    "canonical": "weighted pull-up"
+  },
+  {
+    "training": "Pullover (Dumbbell)",
+    "canonical": "dumbbell pullover"
+  },
+  {
+    "training": "Pullover Barbell",
+    "canonical": "barbell pullover"
+  },
+  {
+    "training": "Push Press (Dumbbell)",
+    "canonical": "dumbbell push press"
+  },
+  {
+    "training": "Push Up",
+    "canonical": "push-up"
+  },
+  {
+    "training": "Push Up (Incline)",
+    "canonical": "incline push-up"
+  },
+  {
+    "training": "Rack Pull (Barbell)",
+    "canonical": "barbell rack pull"
+  },
+  {
+    "training": "Reverse Bicep Curl (Dumbbell)",
+    "canonical": "dumbbell biceps curl reverse"
+  },
+  {
+    "training": "Reverse Cable Curl",
+    "canonical": "cable reverse curl"
+  },
+  {
+    "training": "Reverse Curl Cable",
+    "canonical": "cable reverse curl"
+  },
+  {
+    "training": "Reverse Dumbbell Fly",
+    "canonical": "dumbbell reverse fly"
+  },
+  {
+    "training": "Reverse Dumbell Fly",
+    "canonical": "dumbbell reverse fly"
+  },
+  {
+    "training": "Reverse Wrist Curl (Barbell)",
+    "canonical": "barbell reverse wrist curl"
+  },
+  {
+    "training": "Reverse Wrist Curl (Cable)",
+    "canonical": "cable reverse wrist curl"
+  },
+  {
+    "training": "Reverse Wrist Curl (Dumbbell)",
+    "canonical": "dumbbell reverse wrist curl"
+  },
+  {
+    "training": "Romanian Deadlift (Barbell)",
+    "canonical": "barbell romanian deadlift"
+  },
+  {
+    "training": "Romanian Deadlift (Dumbbell)",
+    "canonical": "dumbbell romanian deadlift"
+  },
+  {
+    "training": "Run",
+    "canonical": "run"
+  },
+  {
+    "training": "Russian Twist",
+    "canonical": "russian twist"
+  },
+  {
+    "training": "Scapular Pull-Up",
+    "canonical": "scapular pull-up"
+  },
+  {
+    "training": "Scapular Pull-Ups",
+    "canonical": "scapular pull-up"
+  },
+  {
+    "training": "Scapular Push Up",
+    "canonical": "scapula push-up"
+  },
+  {
+    "training": "Seated Cable Crunch",
+    "canonical": "cable seated crunch"
+  },
+  {
+    "training": "Seated Cable Row",
+    "canonical": "cable seated row"
+  },
+  {
+    "training": "Seated Dumbbell Calf Raise",
+    "canonical": "dumbbell seated calf raise"
+  },
+  {
+    "training": "Seated Dumbbell Curl",
+    "canonical": "dumbbell seated curl"
+  },
+  {
+    "training": "Seated Dumbbell Hammer Curls",
+    "canonical": "dumbbell seated hammer curl"
+  },
+  {
+    "training": "Seated Dumbbell Lateral Raise",
+    "canonical": "dumbbell seated lateral raise"
+  },
+  {
+    "training": "Seated Overhead Press (Barbell)",
+    "canonical": "barbell seated overhead press"
+  },
+  {
+    "training": "Seated Row (Cable)",
+    "canonical": "cable seated row"
+  },
+  {
+    "training": "Seated Shoulder Press (Dumbbell)",
+    "canonical": "dumbbell seated shoulder press"
+  },
+  {
+    "training": "Seated Wide-Grip Row (Cable)",
+    "canonical": "cable seated wide-grip row"
+  },
+  {
+    "training": "Shrug (Band)",
+    "canonical": "band shrug"
+  },
+  {
+    "training": "Shrug (Barbell)",
+    "canonical": "barbell shrug"
+  },
+  {
+    "training": "Shrug (Cable)",
+    "canonical": "cable shrug"
+  },
+  {
+    "training": "Shrug (Dumbbell)",
+    "canonical": "dumbbell shrug"
+  },
+  {
+    "training": "Shrug Smith",
+    "canonical": "smith shrug"
+  },
+  {
+    "training": "Side Bend (Dumbbell)",
+    "canonical": "dumbbell side bend"
+  },
+  {
+    "training": "Side Crunch (Cable)",
+    "canonical": "cable side crunch"
+  },
+  {
+    "training": "Single Leg Deadlift (Dumbbell)",
+    "canonical": "dumbbell single leg deadlift"
+  },
+  {
+    "training": "Sissy Squat",
+    "canonical": "sissy squat"
+  },
+  {
+    "training": "Sissy Squat (Weighted)",
+    "canonical": "weighted sissy squat"
+  },
+  {
+    "training": "Sissy Squat Weighted",
+    "canonical": "weighted sissy squat"
+  },
+  {
+    "training": "Sit Up",
+    "canonical": "sit-up v. 2"
+  },
+  {
+    "training": "Skater Hop",
+    "canonical": "skater hops"
+  },
+  {
+    "training": "Skin The Cat",
+    "canonical": "skin the cat"
+  },
+  {
+    "training": "Smith Hack Squat",
+    "canonical": "smith hack squat"
+  },
+  {
+    "training": "Smith Shrug",
+    "canonical": "smith shrug"
+  },
+  {
+    "training": "Smith Upright Row",
+    "canonical": "smith upright row"
+  },
+  {
+    "training": "Snatch Pull",
+    "canonical": "snatch pull"
+  },
+  {
+    "training": "Split Squat",
+    "canonical": "split squats"
+  },
+  {
+    "training": "Split Squat (Barbell)",
+    "canonical": "barbell split squat v. 2"
+  },
+  {
+    "training": "Squat (Dumbbell)",
+    "canonical": "dumbbell squat"
+  },
+  {
+    "training": "Squat Jumps",
+    "canonical": "jump squat"
+  },
+  {
+    "training": "Stiff Leg Deadlift (Dumbbell)",
+    "canonical": "dumbbell stiff leg deadlift"
+  },
+  {
+    "training": "Straight Arm Cable Pulldown",
+    "canonical": "cable straight arm pulldown"
+  },
+  {
+    "training": "Sumo Deadlift (Barbell)",
+    "canonical": "barbell sumo deadlift"
+  },
+  {
+    "training": "Thruster (Barbell)",
+    "canonical": "barbell thruster"
+  },
+  {
+    "training": "Tire Flip",
+    "canonical": "tire flip"
+  },
+  {
+    "training": "Trap Bar Deadlift",
+    "canonical": "trap bar deadlift"
+  },
+  {
+    "training": "Triceps press",
+    "canonical": "triceps press"
+  },
+  {
+    "training": "Upright Row (Barbell)",
+    "canonical": "barbell upright row"
+  },
+  {
+    "training": "Upright Row (Cable)",
+    "canonical": "cable upright row"
+  },
+  {
+    "training": "Upright Row (Dumbbell)",
+    "canonical": "dumbbell upright row"
+  },
+  {
+    "training": "Walking Lunge",
+    "canonical": "walking lunge"
+  },
+  {
+    "training": "Walking Lunges",
+    "canonical": "walking lunge"
+  },
+  {
+    "training": "Wall Push Up",
+    "canonical": "push-up (wall)"
+  },
+  {
+    "training": "Wide Grip Pull-Up",
+    "canonical": "wide grip pull-up"
+  },
+  {
+    "training": "Wide Grip Rear Pull-Up",
+    "canonical": "wide grip rear pull-up"
+  },
+  {
+    "training": "Wide Grip Seated Row (Cable)",
+    "canonical": "cable seated wide-grip row"
+  },
+  {
+    "training": "World's Greatest Stretch",
+    "canonical": "world greatest stretch"
+  },
+  {
+    "training": "Wrist Curl (Cable)",
+    "canonical": "cable wrist curl"
+  },
+  {
+    "training": "Wrist Curl Cable",
+    "canonical": "cable wrist curl"
+  },
+  {
+    "training": "Wrist Curls (Cable)",
+    "canonical": "cable wrist curl"
+  },
+  {
+    "training": "Zercher Squat (Barbell)",
+    "canonical": "barbell zercher squat"
+  },
+  {
+    "training": "hip adduction (Cable)",
+    "canonical": "cable hip adduction"
+  }
+]
