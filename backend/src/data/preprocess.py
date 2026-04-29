@@ -50,7 +50,7 @@ Targets (week-over-week deltas — what the model predicts)
 import ast
 import logging
 import pandas as pd
-from data.consts import lookup_pct_1rm, GOAL_COL_MAP, EQUIPMENT_COL_MAP
+from backend.src.data.consts import lookup_pct_1rm, GOAL_COL_MAP, EQUIPMENT_COL_MAP
 from sqlalchemy import create_engine
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 from sklearn.model_selection import train_test_split

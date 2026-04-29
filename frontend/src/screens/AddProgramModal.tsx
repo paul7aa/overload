@@ -1,0 +1,394 @@
+import { useMemo, useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView, Pressable, ScrollView, StyleSheet,
+  Text, TextInput, View,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Fuse from 'fuse.js';
+import { colors, typography } from '../theme';
+import { Exercise, ProgramExercise, Program, WorkoutDay, RootStackParamList } from '../types';
+import EXERCISES from '../data/exercises.json';
+
+const fuse = new Fuse(EXERCISES as Exercise[], {
+  keys: ['name', 'muscle'],
+  threshold: 0.35,
+  includeScore: true,
+  ignoreLocation: true,
+});
+
+type Props = NativeStackScreenProps<RootStackParamList, 'AddProgram'>;
+
+const LEVELS    = ['Beginner', 'Novice', 'Intermediate', 'Advanced'];
+const GOALS     = ['Powerlifting', 'Powerbuilding', 'Bodybuilding', 'Muscle & Sculpting', 'Athletics', 'Bodyweight Fitness', 'At-Home & Calisthenics', 'Olympic Weightlifting'];
+const EQUIPMENT = ['Full Gym', 'Garage Gym', 'Dumbbell Only', 'At Home'];
+const MAX_DAYS  = 7;
+const TOTAL_STEPS = 5;
+const PROGRAMS_KEY = 'programs';
+
+export default function AddProgramModal({ navigation, route }: Props) {
+  const editing = route.params?.program;
+  const { bottom } = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  navigation.setOptions({ title: editing ? 'Edit Program' : 'New Program' });
+  const [step, setStep] = useState(1);
+  const [name, setName] = useState(editing?.name ?? '');
+  const [level, setLevel] = useState<string[]>(editing?.level ?? []);
+  const [goal, setGoal] = useState<string[]>(editing?.goal ?? []);
+  const [equipment, setEquipment] = useState<string | null>(editing?.equipment ?? null);
+  const [lengthWeeks, setLengthWeeks] = useState(String(editing?.lengthWeeks ?? 12));
+  const [timePerWorkout, setTimePerWorkout] = useState(String(editing?.timePerWorkout ?? 60));
+  const [days, setDays] = useState<WorkoutDay[]>(editing?.days ?? [{ dayNumber: 1, exercises: [] }]);
+
+  // exercise picker state
+  const [addingToDay, setAddingToDay] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [pendingEx, setPendingEx] = useState<Exercise | null>(null);
+  const [pendingSets, setPendingSets] = useState('3');
+  const [pendingReps, setPendingReps] = useState('8');
+
+  const toggleMulti = (val: string, list: string[], set: (v: string[]) => void) =>
+    set(list.includes(val) ? list.filter(v => v !== val) : [...list, val]);
+
+  const filtered: Exercise[] = useMemo(() => {
+    if (query.length < 2 || addingToDay === null) return [];
+    const alreadyAdded = new Set(days[addingToDay].exercises.map(e => e.id));
+    return fuse.search(query)
+      .map(r => r.item as Exercise)
+      .filter(e => !alreadyAdded.has(e.id))
+      .slice(0, 40);
+  }, [query, addingToDay, days]);
+
+  const openPicker = (dayIndex: number) => {
+    setAddingToDay(dayIndex);
+    setQuery('');
+    setPendingEx(null);
+    setPendingSets('3');
+    setPendingReps('8');
+  };
+
+  const closePicker = () => {
+    setAddingToDay(null);
+    setQuery('');
+    setPendingEx(null);
+  };
+
+  const confirmAdd = () => {
+    if (pendingEx === null || addingToDay === null) return;
+    const ex: ProgramExercise = { ...pendingEx, sets: parseInt(pendingSets) || 3, reps: parseInt(pendingReps) || 8 };
+    setDays(prev => prev.map((d, i) =>
+      i === addingToDay ? { ...d, exercises: [...d.exercises, ex] } : d
+    ));
+    setPendingEx(null);
+    setQuery('');
+  };
+
+  const removeExercise = (dayIndex: number, exId: number) =>
+    setDays(prev => prev.map((d, i) =>
+      i === dayIndex ? { ...d, exercises: d.exercises.filter(e => e.id !== exId) } : d
+    ));
+
+  const addDay = () => {
+    if (days.length >= MAX_DAYS) return;
+    setDays(prev => [...prev, { dayNumber: prev.length + 1, exercises: [] }]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  const swapDays = (i: number, j: number) => {
+    setDays(prev => {
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next.map((d, idx) => ({ ...d, dayNumber: idx + 1 }));
+    });
+  };
+
+  const removeDay = (index: number) => {
+    if (days.length === 1) return;
+    if (addingToDay === index) closePicker();
+    setDays(prev =>
+      prev.filter((_, i) => i !== index).map((d, i) => ({ ...d, dayNumber: i + 1 }))
+    );
+  };
+
+  const canAdvance = (): boolean => {
+    if (step === 1) return name.trim().length > 0 && level.length > 0;
+    if (step === 2) return goal.length > 0;
+    if (step === 3) return equipment !== null;
+    if (step === 4) return parseInt(lengthWeeks) > 0 && parseInt(timePerWorkout) > 0;
+    if (step === 5) return days.every(d => d.exercises.length > 0);
+    return false;
+  };
+
+  const save = async () => {
+    const raw = await AsyncStorage.getItem(PROGRAMS_KEY);
+    const programs: Program[] = raw ? JSON.parse(raw) : [];
+    const updated: Program = {
+      id: editing?.id ?? Date.now().toString(),
+      name: name.trim(),
+      level, goal,
+      equipment: equipment!,
+      lengthWeeks: parseInt(lengthWeeks),
+      timePerWorkout: parseInt(timePerWorkout),
+      days,
+    };
+    const next = editing
+      ? programs.map(p => p.id === editing.id ? updated : p)
+      : [...programs, updated];
+    await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(next));
+    navigation.goBack();
+  };
+
+  return (
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
+      <View style={styles.progressRow}>
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <View key={i} style={[styles.pip, i < step && styles.pipDone]} />
+        ))}
+      </View>
+
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+
+        {step === 1 && <>
+          <Text style={styles.heading}>Name your program</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 12-Week Strength Block"
+            placeholderTextColor={colors.secondary}
+            value={name}
+            onChangeText={setName}
+          />
+          <Text style={[styles.heading, { marginTop: 28 }]}>Level</Text>
+          <OptionRow options={LEVELS} selected={level} onSelect={v => toggleMulti(v, level, setLevel)} />
+        </>}
+
+        {step === 2 && <>
+          <Text style={styles.heading}>Goal</Text>
+          <OptionGrid options={GOALS} selected={goal} onSelect={v => toggleMulti(v, goal, setGoal)} />
+        </>}
+
+        {step === 3 && <>
+          <Text style={styles.heading}>Equipment</Text>
+          <OptionGrid options={EQUIPMENT} selected={equipment} onSelect={setEquipment} />
+        </>}
+
+        {step === 4 && <>
+          <Text style={styles.heading}>Program length (weeks)</Text>
+          <TextInput style={styles.input} keyboardType="numeric" value={lengthWeeks} onChangeText={setLengthWeeks} placeholderTextColor={colors.secondary} />
+          <Text style={[styles.heading, { marginTop: 28 }]}>Time per workout (min)</Text>
+          <TextInput style={styles.input} keyboardType="numeric" value={timePerWorkout} onChangeText={setTimePerWorkout} placeholderTextColor={colors.secondary} />
+        </>}
+
+        {step === 5 && <>
+          {days.map((day, di) => (
+            <View key={di} style={styles.dayBlock}>
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayTitle}>Day {day.dayNumber}</Text>
+                <View style={styles.dayActions}>
+                  {di > 0 && (
+                    <Pressable onPress={() => swapDays(di, di - 1)} hitSlop={8}>
+                      <Text style={styles.dayAction}>↑</Text>
+                    </Pressable>
+                  )}
+                  {di < days.length - 1 && (
+                    <Pressable onPress={() => swapDays(di, di + 1)} hitSlop={8}>
+                      <Text style={styles.dayAction}>↓</Text>
+                    </Pressable>
+                  )}
+                  {days.length > 1 && (
+                    <Pressable onPress={() => removeDay(di)} hitSlop={8}>
+                      <Text style={styles.removeDay}>Remove</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+
+              {day.exercises.map(ex => (
+                <View key={ex.id} style={styles.exRow}>
+                  <View style={styles.exInfo}>
+                    <Text style={styles.exName}>{ex.name}</Text>
+                    <Text style={styles.exMeta}>{ex.sets} × {ex.reps}  ·  {ex.muscle}</Text>
+                  </View>
+                  <Pressable onPress={() => removeExercise(di, ex.id)} hitSlop={8}>
+                    <Text style={styles.exRemove}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+
+              {addingToDay === di ? (
+                <View style={styles.picker}>
+                  {pendingEx === null ? (
+                    <>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Search exercises..."
+                        placeholderTextColor={colors.secondary}
+                        value={query}
+                        onChangeText={setQuery}
+                        autoFocus
+                      />
+                      {filtered.map(ex => (
+                        <Pressable key={ex.id} style={styles.searchRow} onPress={() => setPendingEx(ex)}>
+                          <Text style={styles.exName}>{ex.name}</Text>
+                          <Text style={styles.exMeta}>{ex.muscle}</Text>
+                        </Pressable>
+                      ))}
+                      <Pressable onPress={closePicker} style={styles.cancelBtn}>
+                        <Text style={styles.cancelText}>Cancel</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <View style={styles.setsRepsRow}>
+                      <Text style={styles.pendingName}>{pendingEx.name}</Text>
+                      <View style={styles.setsRepsInputs}>
+                        <View style={styles.numericField}>
+                          <Text style={styles.numericLabel}>Sets</Text>
+                          <TextInput style={styles.numericInput} keyboardType="numeric" value={pendingSets} onChangeText={setPendingSets} />
+                        </View>
+                        <Text style={styles.times}>×</Text>
+                        <View style={styles.numericField}>
+                          <Text style={styles.numericLabel}>Reps</Text>
+                          <TextInput style={styles.numericInput} keyboardType="numeric" value={pendingReps} onChangeText={setPendingReps} />
+                        </View>
+                      </View>
+                      <View style={styles.confirmRow}>
+                        <Pressable style={styles.cancelBtn} onPress={() => setPendingEx(null)}>
+                          <Text style={styles.cancelText}>Back</Text>
+                        </Pressable>
+                        <Pressable style={styles.confirmBtn} onPress={confirmAdd}>
+                          <Text style={styles.confirmText}>Add</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Pressable style={styles.addExBtn} onPress={() => openPicker(di)}>
+                  <Text style={styles.addExText}>+ Add Exercise</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+
+          {days.length < MAX_DAYS && (
+            <Pressable style={styles.addDayBtn} onPress={addDay}>
+              <Text style={styles.addDayText}>+ Add Day</Text>
+            </Pressable>
+          )}
+        </>}
+
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: bottom || 16 }]}>
+        {step > 1 && (
+          <Pressable style={styles.backBtn} onPress={() => setStep(s => s - 1)}>
+            <Text style={styles.backBtnText}>Back</Text>
+          </Pressable>
+        )}
+        <Pressable
+          style={[styles.nextBtn, !canAdvance() && styles.nextBtnDisabled]}
+          disabled={!canAdvance()}
+          onPress={() => step < TOTAL_STEPS ? setStep(s => s + 1) : save()}
+        >
+          <Text style={styles.nextBtnText}>{step < TOTAL_STEPS ? 'Next' : 'Save'}</Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function OptionRow({ options, selected, onSelect }: { options: string[]; selected: string[]; onSelect: (o: string) => void }) {
+  return (
+    <View style={styles.optionRow}>
+      {options.map(o => (
+        <Pressable key={o} style={[styles.pill, selected.includes(o) && styles.pillActive]} onPress={() => onSelect(o)}>
+          <Text style={[styles.pillText, selected.includes(o) && styles.pillTextActive]}>{o}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function OptionGrid({ options, selected, onSelect }: { options: string[]; selected: string | string[] | null; onSelect: (o: string) => void }) {
+  const active = (o: string) => Array.isArray(selected) ? selected.includes(o) : o === selected;
+  return (
+    <View style={styles.grid}>
+      {options.map(o => (
+        <Pressable key={o} style={[styles.gridCard, active(o) && styles.gridCardActive]} onPress={() => onSelect(o)}>
+          <Text style={[styles.gridText, active(o) && styles.gridTextActive]}>{o}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  progressRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 20, paddingTop: 16 },
+  pip: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.border },
+  pipDone: { backgroundColor: colors.accent },
+  body: { padding: 20, gap: 8 },
+  heading: { ...typography.body, fontWeight: '600', marginBottom: 12 },
+  input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, color: colors.accent, fontSize: 15 },
+
+  // option row (pills)
+  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  pillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  pillText: { color: colors.primary, fontSize: 14 },
+  pillTextActive: { color: colors.background, fontWeight: '600' },
+
+  // option grid (cards)
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridCard: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.border, minWidth: '45%', flex: 1 },
+  gridCardActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  gridText: { color: colors.primary, fontSize: 14 },
+  gridTextActive: { color: colors.background, fontWeight: '600' },
+
+  // day blocks
+  dayBlock: { backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
+  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  dayTitle: { ...typography.body, fontWeight: '700' },
+  dayActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  dayAction: { color: colors.primary, fontSize: 16 },
+  removeDay: { ...typography.caption, color: colors.secondary },
+
+  // exercise rows
+  exRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  exInfo: { flex: 1 },
+  exName: { ...typography.body },
+  exMeta: { ...typography.caption, marginTop: 2 },
+  exRemove: { color: colors.secondary, fontSize: 20, paddingLeft: 12 },
+
+  // add exercise button
+  addExBtn: { paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.secondary, borderRadius: 8, marginTop: 4 },
+  addExText: { color: colors.primary, fontSize: 14 },
+
+  // picker
+  picker: { gap: 8, marginTop: 4 },
+  searchRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  pendingName: { ...typography.body, fontWeight: '600', marginBottom: 12 },
+  setsRepsRow: { gap: 12 },
+  setsRepsInputs: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  numericField: { flex: 1, gap: 6 },
+  numericLabel: { ...typography.caption },
+  numericInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, color: colors.accent, fontSize: 18, textAlign: 'center' },
+  times: { color: colors.secondary, fontSize: 18 },
+  confirmRow: { flexDirection: 'row', gap: 8 },
+  cancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  cancelText: { color: colors.secondary, fontSize: 14 },
+  confirmBtn: { flex: 2, padding: 12, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center' },
+  confirmText: { color: colors.background, fontSize: 14, fontWeight: '700' },
+
+  // add day
+  addDayBtn: { padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.secondary, alignItems: 'center' },
+  addDayText: { color: colors.primary, fontSize: 14 },
+
+  // footer
+  footer: { flexDirection: 'row', gap: 10, padding: 16 },
+  backBtn: { flex: 1, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  backBtnText: { color: colors.primary, fontSize: 15 },
+  nextBtn: { flex: 2, padding: 16, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' },
+  nextBtnDisabled: { backgroundColor: colors.surface },
+  nextBtnText: { color: colors.background, fontSize: 15, fontWeight: '700' },
+});

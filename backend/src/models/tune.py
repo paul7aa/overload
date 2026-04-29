@@ -1,7 +1,7 @@
 import os
 import mlflow
 import optuna
-from train import train, _load_data, EXPERIMENT_NAME
+from models.train import train, _load_data, EXPERIMENT_NAME
 
 mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
 

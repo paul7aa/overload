@@ -173,7 +173,7 @@ print("\n" + "=" * 60)
 print("RPE → % 1RM LOOKUP VALIDATION")
 print("=" * 60)
 
-from consts import  lookup_pct_1rm
+from backend.src.data.consts import  lookup_pct_1rm
 
 # Apply to rep-based rows within the reliable reps/RPE range
 eligible = rep_based[

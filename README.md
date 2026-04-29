@@ -107,7 +107,7 @@ Prefect scheduled flow triggered
 | Session store | PostgreSQL | Persist user gym logs |
 | API | FastAPI + Pydantic | Predictions, session logging, model reload |
 | Containerisation | Docker Compose | Run full stack locally |
-| Mobile app | React Native (planned) | iOS/Android client |
+| Mobile app | React Native + Expo | iOS/Android client |
 
 ### Hosting
 
@@ -178,15 +178,114 @@ overload/                         # monorepo root
 │   ├── docker-compose.yml
 │   ├── Dockerfile
 │   └── requirements.txt
-├── mobile/                       # React Native app (planned)
+├── frontend/                      # React Native app (Expo)
 │   ├── src/
-│   │   ├── screens/              # Workout input, recommendation, session log
+│   │   ├── screens/
+│   │   │   ├── HomeScreen            # Active program + start workout
+│   │   │   ├── ProgramsScreen        # List of saved programs
+│   │   │   ├── AddProgramScreen      # Create program (goal, equipment, exercises)
+│   │   │   ├── ActiveWorkoutScreen   # Current exercise + set tracker
+│   │   │   └── WorkoutCompleteScreen # Session summary
 │   │   ├── components/
 │   │   └── api/                  # API client (points to backend over WiFi)
 │   ├── app.json
 │   └── package.json
 └── README.md
 ```
+
+---
+
+## Mobile app
+
+### Design principles
+
+- **Minimal input mid-workout** — you're between sets, hands may be chalked. Taps, not typing.
+- **Log what happened, not what you planned** — the app tells you what to do; you confirm what you actually did.
+- **One screen at a time** — no navigation during a workout.
+- **No manual 1RM entry** — the app back-calculates your 1RM from weight + reps + RPE automatically.
+
+---
+
+### 1RM — auto-calculated, never entered
+
+The Tuchscherer table works in both directions:
+
+```
+1RM = working_weight / pct_1rm(reps, rpe)
+```
+
+Example: lifted 75 kg × 5 reps @ RPE 8 → `pct_1rm = 0.76` → estimated 1RM = **98.7 kg**
+
+- **First session on an exercise** — user enters the weight they lifted, reps, and RPE. App back-calculates 1RM and stores it on-device.
+- **Every subsequent session** — the API returns a predicted weight. User logs actual reps + RPE. 1RM is recalculated and updated automatically.
+- **Self-correcting** — as the user gets stronger, 1RM updates after every session with no manual input.
+
+---
+
+### Screens
+
+#### Programs
+A list of your saved programs. Each program has:
+- Name
+- Goal (Powerlifting, Bodybuilding, etc.)
+- Equipment (Full Gym, Garage Gym, etc.)
+- Level
+- Length in weeks
+- List of exercises
+
+#### Add Program
+Step-by-step form:
+1. Name + Level
+2. Goal (single select)
+3. Equipment (single select)
+4. Program length (weeks) + time per workout
+5. Add exercises — search by name
+
+---
+
+### Workout flow
+
+This matches how a session actually happens in the gym:
+
+```
+Home
+ └── Start Workout
+       │
+       ▼
+ ┌─────────────────────────────────────┐
+ │  Active Workout                     │
+ │                                     │
+ │  Exercise: Bench Press              │
+ │  Target: 3×5 @ 79 kg                │  ← from API prediction
+ │                                     │
+ │  Set 1  [ reps ] [ RPE slider ]     │  ← filled in after completing the set
+ │  Set 2  [ reps ] [ RPE slider ]     │
+ │  Set 3  [ reps ] [ RPE slider ]     │
+ │                                     │
+ │         [ Next Exercise → ]         │
+ └─────────────────────────────────────┘
+       │
+       ▼  (repeat for each exercise)
+       │
+       ▼
+ Workout Complete
+  - Summary of sets/reps/weight per exercise
+  - 1RM recalculated for each exercise from logged reps + RPE
+  - POST /log called once per exercise
+```
+
+**Key decisions:**
+- Weight is **shown** from the prediction, not entered — user only logs reps and RPE.
+- RPE entry is a slider (6–10 in 0.5 steps), not a text field.
+- Rest timer runs automatically between sets (configurable, skippable).
+- `POST /log` is called at the end of the workout, not after every set, to avoid partial writes if the user exits mid-session.
+- **First session on a new exercise**: no prediction shown. User logs the weight they used — 1RM is calculated and stored. Prediction available from the next session.
+
+---
+
+### Development
+
+Built with **React Native + Expo**. No emulator needed — install [Expo Go](https://expo.dev/go) on your phone, scan the QR code printed by `npx expo start`, and the app loads directly on your device over WiFi.
 
 ---
 
