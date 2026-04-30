@@ -43,8 +43,12 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const startTime = useRef(0);
 
   useEffect(() => {
-    AsyncStorage.getItem(`week_${program.id}`).then(val => {
-      if (val) setWeekNumber(parseInt(val));
+    AsyncStorage.getItem(`program_start_${program.id}`).then(val => {
+      if (val) {
+        const elapsed = (Date.now() - new Date(val).getTime()) / 86400000;
+        const week = Math.min(Math.floor(elapsed / 7) + 1, program.lengthWeeks);
+        setWeekNumber(week);
+      }
     });
   }, []);
 
@@ -62,7 +66,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
           style={{ paddingLeft: 12 }}
           onPress={() => Alert.alert('Exit Workout?', 'Your progress will be lost.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
+            { text: 'Exit', style: 'destructive', onPress: () => { isFinishing.current = true; navigation.goBack(); } },
           ])}
         >
           <Text style={styles.exitBtn}>✕</Text>
@@ -111,7 +115,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
                 const newLogs: ExerciseLog[] = day.exercises.map(ex => ({
                   exercise: ex,
                   dayNumber: day.dayNumber,
-                  sets: Array.from({ length: ex.sets }, () => ({ reps: ex.reps, rpe: 8, weight: 0 })),
+                  sets: Array.from({ length: ex.sets }, () => ({ reps: ex.reps, rpe: 8, weight: 0, completed: false })),
                 }));
                 startTime.current = Date.now();
                 setLogs(newLogs);
@@ -140,8 +144,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const currentLog = logs[exerciseIndex];
   const ex: ProgramExercise = currentLog.exercise;
   const isLast = exerciseIndex === logs.length - 1;
-  // Derived from logs — weight > 0 means the set was completed
-  const currentSetIndex = currentLog.sets.filter(s => s.weight > 0).length;
+  const currentSetIndex = currentLog.sets.filter(s => s.completed).length;
   const allSetsComplete = currentSetIndex >= currentLog.sets.length;
 
   const openEditSet = (si: number) => {
@@ -158,7 +161,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     setLogs(prev => prev.map((log, i) => {
       if (i !== exerciseIndex) return log;
       const sets = log.sets.map((s, si) =>
-        si === editingSetIndex ? { reps: editReps, rpe: editRpe, weight } : s
+        si === editingSetIndex ? { reps: editReps, rpe: editRpe, weight, completed: true } : s
       );
       return { ...log, sets };
     }));
@@ -166,16 +169,12 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   };
 
   const completeSet = () => {
-    const weight = parseFloat(currentWeight);
-    if (!currentWeight.trim() || isNaN(weight) || weight <= 0) {
-      Alert.alert('Weight required', 'Enter the weight used before completing this set.');
-      return;
-    }
+    const weight = parseFloat(currentWeight) || 0;
     const nextIdx = currentSetIndex + 1;
     setLogs(prev => prev.map((log, i) => {
       if (i !== exerciseIndex) return log;
       const sets = log.sets.map((s, si) =>
-        si === currentSetIndex ? { reps: currentReps, rpe: currentRpe, weight: weight } : s
+        si === currentSetIndex ? { reps: currentReps, rpe: currentRpe, weight, completed: true } : s
       );
       return { ...log, sets };
     }));
@@ -187,13 +186,13 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     }
   };
 
-  const workoutComplete = logs.every(log => log.sets.every(s => s.weight > 0));
+  const workoutComplete = logs.every(log => log.sets.every(s => s.completed));
 
   const finishWorkout = () => {
     const doFinish = () => {
       isFinishing.current = true;
       const durationSeconds = Math.floor((Date.now() - startTime.current) / 1000);
-      navigation.replace('WorkoutComplete', { logs, program, durationSeconds });
+      navigation.replace('WorkoutComplete', { logs, program, durationSeconds, weekNumber });
     };
     if (workoutComplete) {
       doFinish();
@@ -219,7 +218,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.tabBarContent}
       >
         {logs.map((log, i) => {
-          const done = log.sets.every(s => s.weight > 0);
+          const done = log.sets.every(s => s.completed);
           const active = i === exerciseIndex;
           return (
             <Pressable
@@ -313,7 +312,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
           ) : (
             <Pressable key={si} style={styles.completedSet} onPress={() => openEditSet(si)}>
               <Text style={styles.completedSetNum}>Set {si + 1}</Text>
-              <Text style={styles.completedSetDetail}>{set.weight > 0 ? `${set.weight} kg` : '— kg'}</Text>
+              <Text style={styles.completedSetDetail}>{set.weight > 0 ? `${set.weight} kg` : 'BW'}</Text>
               <Text style={styles.completedSetDetail}>{set.reps} reps</Text>
               <Text style={styles.completedSetDetail}>RPE {set.rpe}</Text>
               <Text style={styles.editHint}>✎</Text>

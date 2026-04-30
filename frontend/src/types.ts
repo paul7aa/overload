@@ -30,12 +30,20 @@ export type SetLog = {
   reps: number;
   rpe: number;
   weight: number;
+  completed?: boolean;
 };
 
 export type ExerciseLog = {
   exercise: ProgramExercise;
   dayNumber: number;
   sets: SetLog[];
+};
+
+export type LastSessionEntry = {
+  sets: number;
+  reps: number;
+  rpe: number;
+  oneRm: number;
 };
 
 export type WorkoutRecord = {

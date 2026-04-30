@@ -1,3 +1,5 @@
+name: overload
+
 services:
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.11.1
@@ -27,9 +29,10 @@ services:
     environment:
       PREFECT_SERVER_API_HOST: 0.0.0.0
       PREFECT_UI_API_URL: http://localhost:4200/api
-      PREFECT_API_DATABASE_CONNECTION_URL: sqlite+aiosqlite:////prefect/prefect.db?timeout=30
-    volumes:
-      - prefect_data:/prefect
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://overload:overload@postgres:5432/overload
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
       interval: 10s
@@ -76,5 +79,4 @@ services:
 
 volumes:
   mlflow_data:
-  prefect_data:
   postgres_data:

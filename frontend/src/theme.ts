@@ -8,7 +8,7 @@ export const colors = {
 };
 
 export const typography = {
-  heading: { fontSize: 22, fontWeight: '700' as const, color: colors.accent },
-  body: { fontSize: 16, fontWeight: '400' as const, color: colors.primary },
-  caption: { fontSize: 13, fontWeight: '400' as const, color: colors.secondary },
+  heading: { fontSize: 22, fontFamily: 'Outfit_700Bold', color: colors.accent },
+  body: { fontSize: 16, fontFamily: 'Outfit_400Regular', color: colors.primary },
+  caption: { fontSize: 13, fontFamily: 'Outfit_400Regular', color: colors.secondary },
 };

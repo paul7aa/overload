@@ -10,6 +10,10 @@ PLAN.md
 
 # Data
 backend/data/*.csv
+backend/data/exercise_mapping.json
+backend/data/exercise_no_match.json
+backend/data/exercise_auto_accepted.json
+backend/data/best_params.json
 
 # Python
 __pycache__/

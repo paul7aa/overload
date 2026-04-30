@@ -6,17 +6,41 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Fuse from 'fuse.js';
 import { colors, typography } from '../theme';
 import { Exercise, ProgramExercise, Program, WorkoutDay, RootStackParamList } from '../types';
 import EXERCISES from '../data/exercises.json';
 
-const fuse = new Fuse(EXERCISES as Exercise[], {
-  keys: ['name', 'muscle'],
-  threshold: 0.35,
-  includeScore: true,
-  ignoreLocation: true,
-});
+function scoreExercise(ex: Exercise, words: string[]): number {
+  const name = ex.name.toLowerCase();
+  const muscle = ex.muscle.toLowerCase();
+  const nameWords = name.split(/[\s\-]+/);
+
+  // All query words appear at the start of some name-word (e.g. "ben pre" → "bench press")
+  if (words.every(w => nameWords.some(nw => nw.startsWith(w)))) {
+    // Boost if the first query word matches the first name word
+    return nameWords[0].startsWith(words[0]) ? 90 : 75;
+  }
+  // All query words appear anywhere in the name
+  if (words.every(w => name.includes(w))) return 60;
+  // Partial: at least one word matches a name-word prefix
+  const hits = words.filter(w => nameWords.some(nw => nw.startsWith(w))).length;
+  if (hits > 0) return 40 + (hits / words.length) * 15;
+  // Muscle group match
+  if (words.every(w => muscle.includes(w))) return 20;
+  return 0;
+}
+
+function searchExercises(query: string, exclude: Set<number>): Exercise[] {
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  return (EXERCISES as Exercise[])
+    .filter(ex => !exclude.has(ex.id))
+    .map(ex => ({ ex, score: scoreExercise(ex, words) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.ex.name.localeCompare(b.ex.name))
+    .map(({ ex }) => ex)
+    .slice(0, 40);
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddProgram'>;
 
@@ -56,10 +80,7 @@ export default function AddProgramModal({ navigation, route }: Props) {
   const filtered: Exercise[] = useMemo(() => {
     if (query.length < 2 || addingToDay === null) return [];
     const alreadyAdded = new Set(days[addingToDay].exercises.map(e => e.id));
-    return fuse.search(query)
-      .map(r => r.item as Exercise)
-      .filter(e => !alreadyAdded.has(e.id))
-      .slice(0, 40);
+    return searchExercises(query, alreadyAdded);
   }, [query, addingToDay, days]);
 
   const openPicker = (dayIndex: number) => {

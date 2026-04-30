@@ -2,6 +2,8 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts, Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
+import { View } from 'react-native';
 import { colors } from './src/theme';
 import { RootStackParamList } from './src/types';
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,6 +17,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.background } };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold });
+
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <NavigationContainer theme={navTheme}>
@@ -24,7 +30,7 @@ export default function App() {
         screenOptions={{
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.accent,
-          headerTitleStyle: { fontWeight: '700' },
+          headerTitleStyle: { fontFamily: 'Outfit_700Bold' },
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
         }}

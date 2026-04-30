@@ -13,6 +13,107 @@ function formatDuration(seconds: number) {
   return `${m}m ${s}s`;
 }
 
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 86400000).toISOString();
+}
+
+const MOCK_RECORDS: WorkoutRecord[] = [
+  {
+    id: 'mock-1',
+    programId: 'mock-program',
+    programName: '12-Week Strength Block',
+    dayNumber: 1,
+    weekNumber: 4,
+    durationSeconds: 3720,
+    completedAt: daysAgo(0),
+    exercises: [
+      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
+        { weight: 90, reps: 5, rpe: 8 }, { weight: 90, reps: 5, rpe: 8 }, { weight: 90, reps: 4, rpe: 9 },
+      ]},
+      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
+        { weight: 120, reps: 5, rpe: 7 }, { weight: 120, reps: 5, rpe: 8 }, { weight: 120, reps: 5, rpe: 8 },
+      ]},
+      { name: 'Pull-Up', muscle: 'back', sets: [
+        { weight: 0, reps: 8, rpe: 8 }, { weight: 0, reps: 7, rpe: 9 }, { weight: 0, reps: 6, rpe: 9 },
+      ]},
+    ],
+  },
+  {
+    id: 'mock-2',
+    programId: 'mock-program',
+    programName: '12-Week Strength Block',
+    dayNumber: 2,
+    weekNumber: 4,
+    durationSeconds: 2940,
+    completedAt: daysAgo(1),
+    exercises: [
+      { name: 'Barbell Overhead Press', muscle: 'shoulders', sets: [
+        { weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 4, rpe: 9 },
+      ]},
+      { name: 'Romanian Deadlift', muscle: 'hamstrings', sets: [
+        { weight: 100, reps: 8, rpe: 7 }, { weight: 100, reps: 8, rpe: 8 }, { weight: 100, reps: 7, rpe: 8 },
+      ]},
+      { name: 'Dumbbell Lateral Raise', muscle: 'shoulders', sets: [
+        { weight: 14, reps: 12, rpe: 7 }, { weight: 14, reps: 12, rpe: 8 }, { weight: 14, reps: 10, rpe: 9 },
+      ]},
+    ],
+  },
+  {
+    id: 'mock-3',
+    programId: 'mock-program',
+    programName: '12-Week Strength Block',
+    dayNumber: 1,
+    weekNumber: 3,
+    durationSeconds: 3480,
+    completedAt: daysAgo(3),
+    exercises: [
+      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
+        { weight: 87.5, reps: 5, rpe: 7 }, { weight: 87.5, reps: 5, rpe: 8 }, { weight: 87.5, reps: 5, rpe: 8 },
+      ]},
+      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
+        { weight: 115, reps: 5, rpe: 7 }, { weight: 115, reps: 5, rpe: 7 }, { weight: 115, reps: 5, rpe: 8 },
+      ]},
+      { name: 'Pull-Up', muscle: 'back', sets: [
+        { weight: 0, reps: 7, rpe: 8 }, { weight: 0, reps: 7, rpe: 8 }, { weight: 0, reps: 6, rpe: 9 },
+      ]},
+    ],
+  },
+  {
+    id: 'mock-4',
+    programId: 'mock-program',
+    programName: '12-Week Strength Block',
+    dayNumber: 2,
+    weekNumber: 3,
+    durationSeconds: 2700,
+    completedAt: daysAgo(5),
+    exercises: [
+      { name: 'Barbell Overhead Press', muscle: 'shoulders', sets: [
+        { weight: 57.5, reps: 5, rpe: 7 }, { weight: 57.5, reps: 5, rpe: 8 }, { weight: 57.5, reps: 5, rpe: 8 },
+      ]},
+      { name: 'Romanian Deadlift', muscle: 'hamstrings', sets: [
+        { weight: 97.5, reps: 8, rpe: 7 }, { weight: 97.5, reps: 8, rpe: 7 }, { weight: 97.5, reps: 8, rpe: 8 },
+      ]},
+    ],
+  },
+  {
+    id: 'mock-5',
+    programId: 'mock-program',
+    programName: '12-Week Strength Block',
+    dayNumber: 1,
+    weekNumber: 2,
+    durationSeconds: 3300,
+    completedAt: daysAgo(18),
+    exercises: [
+      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
+        { weight: 85, reps: 5, rpe: 7 }, { weight: 85, reps: 5, rpe: 7 }, { weight: 85, reps: 5, rpe: 8 },
+      ]},
+      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
+        { weight: 110, reps: 5, rpe: 7 }, { weight: 110, reps: 5, rpe: 7 }, { weight: 110, reps: 5, rpe: 8 },
+      ]},
+    ],
+  },
+];
+
 function groupByDate(records: WorkoutRecord[]): { label: string; items: WorkoutRecord[] }[] {
   const now = new Date();
   const todayStr = now.toDateString();
@@ -54,7 +155,7 @@ function WorkoutCard({ record }: { record: WorkoutRecord }) {
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
           <Text style={styles.cardTitle}>{record.programName} · Day {record.dayNumber}</Text>
-          <Text style={styles.cardMeta}>{time} · {formatDuration(record.durationSeconds)}</Text>
+          <Text style={styles.cardMeta}>Week {record.weekNumber} · {time} · {formatDuration(record.durationSeconds)}</Text>
         </View>
         <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
       </View>
@@ -78,7 +179,7 @@ function WorkoutCard({ record }: { record: WorkoutRecord }) {
               {ex.sets.map((set, si) => (
                 <View key={si} style={styles.setRow}>
                   <Text style={styles.setNum}>Set {si + 1}</Text>
-                  <Text style={styles.setDetail}>{set.weight} kg</Text>
+                  <Text style={styles.setDetail}>{set.weight > 0 ? `${set.weight} kg` : 'BW'}</Text>
                   <Text style={styles.setDetail}>{set.reps} reps</Text>
                   <Text style={styles.setDetail}>RPE {set.rpe}</Text>
                 </View>
@@ -95,18 +196,28 @@ export default function WorkoutHistoryScreen() {
   const { bottom } = useSafeAreaInsets();
   const [groups, setGroups] = useState<{ label: string; items: WorkoutRecord[] }[]>([]);
 
-  useFocusEffect(useCallback(() => {
+  const load = useCallback(() => {
     AsyncStorage.getItem(HISTORY_KEY).then(raw => {
       const records: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
       setGroups(groupByDate(records));
     });
-  }, []));
+  }, []);
+
+  useFocusEffect(load);
+
+  const seedMockData = async () => {
+    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(MOCK_RECORDS));
+    load();
+  };
 
   if (groups.length === 0) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyText}>No workouts yet.</Text>
         <Text style={typography.caption}>Complete a workout to see your history here.</Text>
+        <Pressable onPress={seedMockData} style={styles.seedBtn}>
+          <Text style={styles.seedBtnText}>Load sample data</Text>
+        </Pressable>
       </View>
     );
   }
@@ -126,8 +237,10 @@ export default function WorkoutHistoryScreen() {
 const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 8 },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyText: { ...typography.body, fontWeight: '600' as const },
+  seedBtn: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  seedBtnText: { ...typography.caption, color: colors.secondary },
 
   groupLabel: { ...typography.caption, fontWeight: '600' as const, marginTop: 12, marginBottom: 6, marginLeft: 4 },
 

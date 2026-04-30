@@ -74,20 +74,23 @@ def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y, train_weights=N
         return score
 
 
-def run_training():
+DEFAULT_HYPERPARAMS = {
+    "n_estimators":      531,
+    "learning_rate":     0.016,
+    "num_leaves":        20,
+    "min_child_samples": 18,
+    "subsample":         0.60,
+    "colsample_bytree":  0.84,
+    "random_state":      42,
+    "n_jobs":            -1,
+}
+
+
+def run_training(hyperparams: dict = None):
     mlflow.set_experiment(EXPERIMENT_NAME)
     train_X, train_Y, val_X, val_Y, train_weights = _load_data()
-    hyperparams = {
-        "n_estimators":      531,
-        "learning_rate":     0.016,
-        "num_leaves":        20,
-        "min_child_samples": 18,
-        "subsample":         0.60,
-        "colsample_bytree":  0.84,
-        "random_state":      42,
-        "n_jobs":            -1,
-    }
-    train("training", hyperparams, train_X, train_Y, val_X, val_Y, train_weights)
+    params = {**DEFAULT_HYPERPARAMS, **(hyperparams or {})}
+    train("training", params, train_X, train_Y, val_X, val_Y, train_weights)
 
 
 if __name__ == "__main__":

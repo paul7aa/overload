@@ -21,6 +21,7 @@ import re
 import time
 import pandas as pd
 from rapidfuzz import fuzz, process
+import httpx
 import anthropic
 from dotenv import load_dotenv
 
@@ -45,6 +46,8 @@ def normalize(name: str) -> str:
     the same noise on either side doesn't create artificial mismatches.
     """
     s = name.lower()
+    # Strip leading muscle-group prefix: "(BACK) Barbell Row" → "barbell row"
+    s = re.sub(r'^\([^)]+\)\s*', '', s)
     # Fix encoding artifact in canonical dataset: cyrillic 'в' before degree sign
     s = s.replace("в°", "°")
     # Expand common shorthands
@@ -66,7 +69,7 @@ def normalize(name: str) -> str:
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 AUTO_ACCEPT    = 95  # string so close we trust it without LLM
-LLM_THRESHOLD  = 60   # below this → almost certainly a different exercise
+LLM_THRESHOLD  = 20   # below this → almost certainly a different exercise
 BATCH_SIZE     = 32   # how many pairs to send to Claude per API call
 
 # ── Load data ─────────────────────────────────────────────────────────────────
@@ -132,7 +135,10 @@ with open("data/exercise_auto_accepted.json", "w") as f:
 # Why batch? Each API call has latency overhead. Sending 40 pairs at once
 # is ~40x more efficient than one call per pair.
 
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+client = anthropic.Anthropic(
+    api_key=os.environ["ANTHROPIC_API_KEY"],
+    http_client=httpx.Client(verify=False),
+)
 
 def classify_batch(pairs: list[tuple[str, str, float]]) -> list[bool]:
     """
@@ -163,12 +169,16 @@ Pairs:
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}]
     )
 
     raw = response.content[0].text.strip()
-    results = json.loads(raw)
+    # Extract JSON array even if wrapped in markdown fences or preamble
+    match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if not match:
+        raise ValueError(f"No JSON array found in response: {raw!r}")
+    results = json.loads(match.group())
     # Sort by index in case Claude reorders them
     results.sort(key=lambda x: x["i"])
     return [r["same"] for r in results]
