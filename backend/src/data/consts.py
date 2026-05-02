@@ -15,11 +15,18 @@ RPE_TABLE = {
 }
 
 def lookup_pct_1rm(reps: float, rpe: float) -> float | None:
-    r = int(round(reps))
-    e = int(round(rpe))
-    if r not in RPE_TABLE or e not in RPE_TABLE[r]:
+    r = int(reps + 0.5)  # round-half-up (avoids Python banker's rounding)
+    if r not in RPE_TABLE:
         return None
-    return RPE_TABLE[r][e] / 100.0
+    row = RPE_TABLE[r]
+    rpe_low = int(rpe)
+    frac = rpe - rpe_low
+    if rpe_low not in row:
+        return None
+    if frac == 0 or (rpe_low + 1) not in row:
+        return row[rpe_low] / 100.0
+    # linear interpolation between adjacent integer RPE entries
+    return (row[rpe_low] + frac * (row[rpe_low + 1] - row[rpe_low])) / 100.0
 
 
 # Maps LogRequest field names → Boostcamp training column names

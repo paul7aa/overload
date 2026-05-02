@@ -1,17 +1,31 @@
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme';
-import { ExerciseLog, ProgramExercise, RootStackParamList, WorkoutDay } from '../types';
+import { ExerciseLog, LastSessionEntry, ProgramExercise, RootStackParamList, WorkoutRecord, WorkoutDay } from '../types';
+import { HISTORY_KEY } from './WorkoutCompleteScreen';
+import { equipmentFlags, goalFlags, levelFlags, predict, PredictResponse } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWorkout'>;
 
 const RPE_LABELS: Record<number, string> = {
   6: 'Very Easy', 6.5: 'Easy', 7: 'Moderate', 7.5: 'Somewhat Hard',
   8: 'Hard', 8.5: 'Very Hard', 9: 'Very Hard+', 9.5: 'Near Max', 10: 'Max Effort',
+};
+
+const RPE_HINTS: Record<number, string> = {
+  6:   'Very easy — 4+ reps left in the tank',
+  6.5: 'Easy — could definitely do 4 more',
+  7:   'Comfortable — 3 reps left, form is solid',
+  7.5: 'Getting there — could do 2–3 more',
+  8:   'Hard — 2 reps left, starting to grind',
+  8.5: 'Very hard — maybe 1–2 more, form holding',
+  9:   'Near max — 1 rep left, form may break',
+  9.5: 'Almost max — could squeeze out 1, barely',
+  10:  'True max — couldn\'t do another rep',
 };
 
 function WorkoutTimer() {
@@ -39,18 +53,22 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const [editWeight, setEditWeight] = useState('');
   const [editReps, setEditReps] = useState(0);
   const [editRpe, setEditRpe] = useState(8);
+  const [lastDayNumber, setLastDayNumber] = useState<number | null>(null);
+  const [pickedDay, setPickedDay] = useState<WorkoutDay | null>(null);
+  const [predictions, setPredictions] = useState<Record<string, PredictResponse>>({});
+  const [predictionsStatus, setPredictionsStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
   const isFinishing = useRef(false);
   const startTime = useRef(0);
+  const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
 
   useEffect(() => {
-    AsyncStorage.getItem(`program_start_${program.id}`).then(val => {
-      if (val) {
-        const elapsed = (Date.now() - new Date(val).getTime()) / 86400000;
-        const week = Math.min(Math.floor(elapsed / 7) + 1, program.lengthWeeks);
-        setWeekNumber(week);
-      }
+    AsyncStorage.getItem(HISTORY_KEY).then(raw => {
+      const history: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
+      const last = history.find(r => r.programId === program.id);
+      if (last) setLastDayNumber(last.dayNumber);
     });
   }, []);
+
 
   useEffect(() => {
     if (!selectedDay) {
@@ -102,41 +120,110 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     }
   }, [exerciseIndex]);
 
+  const startWorkout = async (day: WorkoutDay) => {
+    const [dayCountRaw, lastSessionRaw] = await Promise.all([
+      AsyncStorage.getItem(`day_count_${program.id}_${day.dayNumber}`),
+      AsyncStorage.getItem(`last_session_${program.id}`),
+    ]);
+    const week = (dayCountRaw ? parseInt(dayCountRaw) : 0) + 1;
+    setWeekNumber(week);
+
+    const newLogs: ExerciseLog[] = day.exercises.map(ex => ({
+      exercise: ex,
+      dayNumber: day.dayNumber,
+      sets: Array.from({ length: ex.sets }, () => ({ reps: ex.reps, rpe: 8, weight: 0, completed: false })),
+    }));
+    startTime.current = Date.now();
+    setLogs(newLogs);
+    setExerciseIndex(0);
+    const first = newLogs[0]?.sets[0];
+    if (first) { setCurrentReps(first.reps); setCurrentRpe(first.rpe); setCurrentWeight(''); }
+    slideAnim.setValue(Dimensions.get('window').width);
+    setSelectedDay(day);
+    Animated.timing(slideAnim, { toValue: 0, duration: 320, useNativeDriver: true }).start();
+
+    setPredictions({});
+    setPredictionsStatus('idle');
+
+    const lastSession: Record<string, LastSessionEntry> = lastSessionRaw ? JSON.parse(lastSessionRaw) : {};
+    const eligibleExercises = day.exercises.filter(ex => lastSession[ex.name]?.oneRm > 0);
+    if (eligibleExercises.length === 0) return;
+
+    setPredictionsStatus('loading');
+    const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program) };
+    const results = await Promise.all(
+      eligibleExercises.map(ex => {
+        const prev = lastSession[ex.name];
+        return predict({
+          exercise: ex.name,
+          one_rm: prev.oneRm,
+          lag_sets: prev.sets,
+          lag_reps: prev.reps,
+          lag_rpe: prev.rpe,
+          week,
+          day: day.dayNumber,
+          program_length: program.lengthWeeks,
+          time_per_workout: program.timePerWorkout,
+          number_of_exercises: day.exercises.length,
+          weeks_gap: 1,
+          ...flags,
+        }).then(res => ({ name: ex.name, res })).catch(err => {
+            console.warn(`[predict] failed for "${ex.name}":`, err);
+            return null;
+          });
+      })
+    );
+
+    const preds: Record<string, PredictResponse> = {};
+    for (const r of results) {
+      if (r) preds[r.name] = r.res;
+    }
+    if (Object.keys(preds).length === 0) {
+      setPredictionsStatus('failed');
+    } else {
+      setPredictions(preds);
+      setPredictionsStatus('idle');
+    }
+  };
+
   if (!selectedDay) {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>Which day?</Text>
-        <ScrollView contentContainerStyle={[styles.dayGrid, { paddingBottom: bottom + 16 }]}>
-          {program.days.map((day, i) => (
-            <Pressable
-              key={i}
-              style={styles.dayCard}
-              onPress={() => {
-                const newLogs: ExerciseLog[] = day.exercises.map(ex => ({
-                  exercise: ex,
-                  dayNumber: day.dayNumber,
-                  sets: Array.from({ length: ex.sets }, () => ({ reps: ex.reps, rpe: 8, weight: 0, completed: false })),
-                }));
-                startTime.current = Date.now();
-                setLogs(newLogs);
-                setExerciseIndex(0);
-                const first = newLogs[0]?.sets[0];
-                if (first) { setCurrentReps(first.reps); setCurrentRpe(first.rpe); setCurrentWeight(''); }
-                setSelectedDay(day);
-              }}
-            >
-              <Text style={styles.dayCardTitle}>Day {day.dayNumber}</Text>
-              <View style={styles.dayExerciseList}>
-                {day.exercises.map(ex => (
-                  <View key={ex.id} style={styles.dayExerciseRow}>
-                    <Text style={styles.dayExerciseName}>{ex.name}</Text>
-                    <Text style={styles.dayExerciseSets}>{ex.sets} × {ex.reps}</Text>
-                  </View>
-                ))}
-              </View>
-            </Pressable>
-          ))}
+        <ScrollView contentContainerStyle={[styles.dayGrid, { paddingBottom: bottom + 100 }]}>
+          {program.days.map((day, i) => {
+            const isPicked = pickedDay?.dayNumber === day.dayNumber;
+            return (
+              <Pressable
+                key={i}
+                style={[styles.dayCard, isPicked && styles.dayCardPicked]}
+                onPress={() => setPickedDay(day)}
+              >
+                <View style={styles.dayCardHeader}>
+                  <Text style={styles.dayCardTitle}>Day {day.dayNumber}</Text>
+                  {lastDayNumber === day.dayNumber && (
+                    <Text style={styles.lastDoneBadge}>Last done</Text>
+                  )}
+                </View>
+                <View style={styles.dayExerciseList}>
+                  {day.exercises.map(ex => (
+                    <View key={ex.id} style={styles.dayExerciseRow}>
+                      <Text style={styles.dayExerciseName}>{ex.name}</Text>
+                      <Text style={styles.dayExerciseSets}>{ex.sets} × {ex.reps}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
+        {pickedDay && (
+          <View style={[styles.dayPickerFooter, { paddingBottom: bottom || 16 }]}>
+            <Pressable style={styles.startBtn} onPress={() => startWorkout(pickedDay)}>
+              <Text style={styles.startBtnText}>Start Day {pickedDay.dayNumber}</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   }
@@ -209,7 +296,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { transform: [{ translateX: slideAnim }] }]}>
       {/* Tab bar — tap any exercise to jump to it */}
       <ScrollView
         horizontal
@@ -242,11 +329,32 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
 
       <View style={styles.targetRow}>
         <Text style={styles.targetLabel}>Target</Text>
-        <Text style={styles.targetValue}>{ex.sets} × {ex.reps}</Text>
-        <Text style={styles.targetSep}>·</Text>
-        <Text style={styles.targetLabel}>Week {weekNumber}</Text>
-        <Text style={styles.targetWeight}>— kg</Text>
+        {predictions[ex.name] ? (
+          <>
+            <Text style={styles.targetValue}>
+              {predictions[ex.name].next_sets} × {predictions[ex.name].next_reps}
+            </Text>
+            <Text style={styles.targetSep}>·</Text>
+            <Text style={styles.targetLabel}>Week {weekNumber}</Text>
+            <Text style={styles.targetWeight}>{predictions[ex.name].next_weight_kg} kg</Text>
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiBadgeText}>AI</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.targetValue}>{ex.sets} × {ex.reps}</Text>
+            <Text style={styles.targetSep}>·</Text>
+            <Text style={styles.targetLabel}>Week {weekNumber}</Text>
+            <Text style={styles.targetWeight}>— kg</Text>
+          </>
+        )}
       </View>
+      {predictionsStatus === 'failed' && (
+        <View style={styles.predFailedBanner}>
+          <Text style={styles.predFailedText}>AI predictions unavailable — check your connection</Text>
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.setList} keyboardShouldPersistTaps="handled">
@@ -292,6 +400,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
                   <Text style={styles.inputLabel}>RPE</Text>
                   <Text style={styles.rpeValue}>{editRpe} — {RPE_LABELS[editRpe]}</Text>
                 </View>
+                <Text style={styles.rpeHint}>{RPE_HINTS[editRpe]}</Text>
                 <Slider
                   style={styles.slider}
                   minimumValue={6}
@@ -355,7 +464,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
                 <Text style={styles.inputLabel}>RPE</Text>
                 <Text style={styles.rpeValue}>{currentRpe} — {RPE_LABELS[currentRpe]}</Text>
               </View>
-              <Text style={styles.rpeHint}>Rate of Perceived Exertion · 6 = easy · 10 = max effort</Text>
+              <Text style={styles.rpeHint}>{RPE_HINTS[currentRpe]}</Text>
               <Slider
                 style={styles.slider}
                 minimumValue={6}
@@ -378,6 +487,11 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
             <Text style={styles.completeSetBtnText}>✓  Complete Set {currentSetIndex + 1}</Text>
           </Pressable>
         )}
+        {allSetsComplete && !isLast && (
+          <Pressable style={styles.nextExerciseBtn} onPress={() => setExerciseIndex(i => i + 1)}>
+            <Text style={styles.nextExerciseBtnText}>Next Exercise →</Text>
+          </Pressable>
+        )}
         <View style={styles.footerRow}>
           {!allSetsComplete && editingSetIndex === null && (
             <Pressable style={styles.skipBtn} onPress={() => setExerciseIndex(i => isLast ? i : i + 1)}>
@@ -390,7 +504,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
         </View>
       </View>
       </KeyboardAvoidingView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -401,7 +515,13 @@ const styles = StyleSheet.create({
   heading: { ...typography.heading, paddingHorizontal: 20, paddingTop: 32, marginBottom: 24 },
   dayGrid: { paddingHorizontal: 16, gap: 12 },
   dayCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 20, borderWidth: 1, borderColor: colors.border },
-  dayCardTitle: { ...typography.body, fontWeight: '700', marginBottom: 10 },
+  dayCardPicked: { borderColor: colors.accent, backgroundColor: colors.accent + '12' },
+  dayPickerFooter: { position: 'absolute' as const, bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
+  startBtn: { backgroundColor: colors.accent, borderRadius: 10, padding: 16, alignItems: 'center' as const },
+  startBtnText: { color: colors.background, fontWeight: '700' as const, fontSize: 15 },
+  dayCardHeader: { flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  dayCardTitle: { ...typography.body, fontWeight: '700' as const },
+  lastDoneBadge: { ...typography.caption, fontSize: 11, color: colors.accent, borderWidth: 1, borderColor: colors.accent, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   dayExerciseList: { gap: 6 },
   dayExerciseRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dayExerciseName: { ...typography.caption, flex: 1 },
@@ -435,10 +555,10 @@ const styles = StyleSheet.create({
   setList: { padding: 16, gap: 12 },
 
   // completed sets
-  completedSet: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.border, opacity: 0.7 },
-  completedSetNum: { ...typography.caption, width: 44 },
-  completedSetDetail: { ...typography.caption, flex: 1, textAlign: 'center' },
-  editHint: { ...typography.caption, color: colors.secondary, fontSize: 14 },
+  completedSet: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.border },
+  completedSetNum: { ...typography.caption, width: 44, color: colors.secondary },
+  completedSetDetail: { ...typography.caption, flex: 1, textAlign: 'center', color: colors.secondary },
+  editHint: { ...typography.caption, color: colors.accent, fontSize: 17 },
 
   // inline set editor
   editSetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -477,11 +597,32 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row' as const, gap: 8 },
   completeSetBtn: { padding: 16, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' as const },
   completeSetBtnText: { color: colors.background, fontSize: 15, fontWeight: '700' as const },
+  nextExerciseBtn: { padding: 14, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' as const },
+  nextExerciseBtnText: { color: colors.background, fontSize: 15, fontWeight: '700' as const },
   skipBtn: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' as const },
   skipBtnText: { color: colors.secondary, fontSize: 14 },
   finishBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' as const },
-  finishBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' as const },
+  finishBtnText: { color: colors.primary, fontSize: 15, fontWeight: '600' as const },
   finishBtnComplete: { backgroundColor: colors.accent, borderColor: colors.accent },
   finishBtnTextComplete: { color: colors.background },
   nextBtnText: { color: colors.accent, fontSize: 15, fontWeight: '700' as const },
+
+  aiBadge: {
+    backgroundColor: colors.accent + '22',
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  aiBadgeText: { color: colors.accent, fontSize: 10, fontWeight: '700' as const },
+
+  predFailedBanner: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  predFailedText: { ...typography.caption, fontSize: 12, color: colors.secondary },
 });

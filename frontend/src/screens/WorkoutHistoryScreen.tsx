@@ -192,38 +192,82 @@ function WorkoutCard({ record }: { record: WorkoutRecord }) {
   );
 }
 
+function LifetimeStats({ records }: { records: WorkoutRecord[] }) {
+  const totalWorkouts = records.length;
+  const totalSets = records.reduce((n, r) => n + r.exercises.reduce((m, ex) => m + ex.sets.length, 0), 0);
+  const totalVolume = records.reduce(
+    (n, r) => n + r.exercises.reduce((m, ex) => m + ex.sets.reduce((s, set) => s + set.weight * set.reps, 0), 0),
+    0,
+  );
+  const totalMinutes = Math.round(records.reduce((n, r) => n + r.durationSeconds, 0) / 60);
+
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+
+  return (
+    <View style={statsStyles.card}>
+      <Text style={statsStyles.title}>Lifetime</Text>
+      <View style={statsStyles.grid}>
+        <View style={statsStyles.cell}>
+          <Text style={statsStyles.value}>{totalWorkouts}</Text>
+          <Text style={statsStyles.label}>Workouts</Text>
+        </View>
+        <View style={statsStyles.cell}>
+          <Text style={statsStyles.value}>{fmt(totalSets)}</Text>
+          <Text style={statsStyles.label}>Sets</Text>
+        </View>
+        <View style={statsStyles.cell}>
+          <Text style={statsStyles.value}>{fmt(Math.round(totalVolume))}</Text>
+          <Text style={statsStyles.label}>kg Volume</Text>
+        </View>
+        <View style={statsStyles.cell}>
+          <Text style={statsStyles.value}>{fmt(totalMinutes)}</Text>
+          <Text style={statsStyles.label}>Minutes</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const statsStyles = StyleSheet.create({
+  card: {
+    margin: 16, marginBottom: 0, borderRadius: 14,
+    backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: colors.accent + '30',
+    padding: 20, gap: 16,
+  },
+  title: { ...typography.caption, fontSize: 11, letterSpacing: 1.5, color: colors.accent, textTransform: 'uppercase' as const },
+  grid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 0 },
+  cell: { width: '50%' as const, paddingVertical: 10, paddingHorizontal: 4, gap: 4 },
+  value: { fontSize: 28, fontFamily: 'Outfit_700Bold', color: colors.accent },
+  label: { ...typography.caption, fontSize: 12 },
+});
+
 export default function WorkoutHistoryScreen() {
   const { bottom } = useSafeAreaInsets();
+  const [records, setRecords] = useState<WorkoutRecord[]>([]);
   const [groups, setGroups] = useState<{ label: string; items: WorkoutRecord[] }[]>([]);
 
   const load = useCallback(() => {
     AsyncStorage.getItem(HISTORY_KEY).then(raw => {
-      const records: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
-      setGroups(groupByDate(records));
+      const all: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
+      setRecords(all);
+      setGroups(groupByDate(all));
     });
   }, []);
 
   useFocusEffect(load);
-
-  const seedMockData = async () => {
-    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(MOCK_RECORDS));
-    load();
-  };
 
   if (groups.length === 0) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyText}>No workouts yet.</Text>
         <Text style={typography.caption}>Complete a workout to see your history here.</Text>
-        <Pressable onPress={seedMockData} style={styles.seedBtn}>
-          <Text style={styles.seedBtnText}>Load sample data</Text>
-        </Pressable>
       </View>
     );
   }
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]}>
+      <LifetimeStats records={records} />
       {groups.map(({ label, items }) => (
         <View key={label}>
           <Text style={styles.groupLabel}>{label}</Text>

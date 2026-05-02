@@ -1,31 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView, Pressable, ScrollView, StyleSheet,
-  Text, TextInput, View,
+  Animated, KeyboardAvoidingView, Pressable, StyleSheet,
+  Text, TextInput, View, TouchableOpacity, ScrollView
 } from 'react-native';
+import DragList, { DragListRenderItemInfo } from 'react-native-draglist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, typography } from '../theme';
 import { Exercise, ProgramExercise, Program, WorkoutDay, RootStackParamList } from '../types';
 import EXERCISES from '../data/exercises.json';
+import React from 'react';
 
 function scoreExercise(ex: Exercise, words: string[]): number {
   const name = ex.name.toLowerCase();
   const muscle = ex.muscle.toLowerCase();
   const nameWords = name.split(/[\s\-]+/);
 
-  // All query words appear at the start of some name-word (e.g. "ben pre" → "bench press")
   if (words.every(w => nameWords.some(nw => nw.startsWith(w)))) {
-    // Boost if the first query word matches the first name word
     return nameWords[0].startsWith(words[0]) ? 90 : 75;
   }
-  // All query words appear anywhere in the name
   if (words.every(w => name.includes(w))) return 60;
-  // Partial: at least one word matches a name-word prefix
   const hits = words.filter(w => nameWords.some(nw => nw.startsWith(w))).length;
   if (hits > 0) return 40 + (hits / words.length) * 15;
-  // Muscle group match
   if (words.every(w => muscle.includes(w))) return 20;
   return 0;
 }
@@ -51,10 +48,102 @@ const MAX_DAYS  = 7;
 const TOTAL_STEPS = 5;
 const PROGRAMS_KEY = 'programs';
 
+function AnimatedDay({ onRemove, children}: { onRemove: () => void; children: (remove: () => void) => React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, []);
+  const animateRemove = () => {
+    Animated.timing(anim, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => onRemove());
+  };
+  return (
+    <Animated.View 
+    style={{
+      opacity: anim,
+      transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+    }}>
+      {children(animateRemove)}
+    </Animated.View>
+  );
+}
+
+interface ExerciseItemProps {
+  ex: ProgramExercise;
+  dayIndex: number;
+  isActive: boolean;
+  onDragStart: () => void;
+  removeExercise: (dayIndex: number, exId: number) => void;
+}
+
+const ExerciseItem = React.memo(({
+  ex, dayIndex, isActive, onDragStart, removeExercise
+}: ExerciseItemProps) => {
+  return (
+    <View style={[styles.exRow, isActive && styles.exRowDragging]} collapsable={false}>
+      <Pressable onPress={() => removeExercise(dayIndex, ex.id)} hitSlop={8}>
+        <Text style={styles.exRemove}>×</Text>
+      </Pressable>
+      <View style={styles.exInfo}>
+        <Text style={styles.exName}>{ex.name}</Text>
+        <Text style={styles.exMeta}>{ex.sets} × {ex.reps}  ·  {ex.muscle}</Text>
+      </View>
+      <TouchableOpacity 
+        onPressIn={onDragStart} // Only trigger the start, let the library handle the drop naturally
+        hitSlop={8} 
+        style={styles.dragHandle}
+      >
+        <Text style={styles.dragHandleIcon}>≡</Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+interface DayExerciseListProps {
+  day: WorkoutDay;
+  dayIndex: number;
+  reorderExercise: (dayIndex: number, fromIndex: number, toIndex: number) => void;
+  removeExercise: (dayIndex: number, exId: number) => void;
+  onDragBegin: () => void;
+  onDragEnd: () => void;
+}
+
+const DayExerciseList = React.memo(({
+  day, dayIndex, reorderExercise, removeExercise, onDragBegin, onDragEnd
+}: DayExerciseListProps) => {
+
+  const renderItem = useCallback(({ item: ex, onDragStart, isActive }: DragListRenderItemInfo<ProgramExercise>) => (
+    <ExerciseItem
+      ex={ex}
+      dayIndex={dayIndex}
+      isActive={isActive}
+      onDragStart={onDragStart}
+      removeExercise={removeExercise}
+    />
+  ), [dayIndex, removeExercise]);
+
+  const keyExtractor = useCallback((ex: ProgramExercise) => `ex-${ex.id}`, []);
+
+  const onReordered = useCallback((fromIndex: number, toIndex: number) => {
+    reorderExercise(dayIndex, fromIndex, toIndex);
+  }, [dayIndex, reorderExercise]);
+
+  return (
+    <DragList
+      data={day.exercises}
+      keyExtractor={keyExtractor}
+      onReordered={onReordered}
+      onDragBegin={onDragBegin} // Library tells us when the drag starts
+      onDragEnd={onDragEnd}     // Library tells us when the drag fully finishes
+      scrollEnabled={false}
+      renderItem={renderItem}
+    />
+  );
+});
+
 export default function AddProgramModal({ navigation, route }: Props) {
   const editing = route.params?.program;
   const { bottom } = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
   useEffect(() => {
     navigation.setOptions({ title: editing ? 'Edit Program' : 'New Program' });
   }, []);
@@ -67,6 +156,18 @@ export default function AddProgramModal({ navigation, route }: Props) {
   const [timePerWorkout, setTimePerWorkout] = useState(String(editing?.timePerWorkout ?? 60));
   const [days, setDays] = useState<WorkoutDay[]>(editing?.days ?? [{ dayNumber: 1, exercises: [] }]);
 
+// Drag state for standard ScrollView wrapper
+  const [isDragging, setIsDragging] = useState(false);
+
+const handleDragBegin = useCallback(() => setIsDragging(true), []);
+  
+  const handleDragEnd = useCallback(() => {
+    // Give the layout engine 50ms to process the drop and array reorder 
+    // before re-enabling the parent scroll view.
+    setTimeout(() => {
+      setIsDragging(false);
+    }, 50);
+  }, []);
   // exercise picker state
   const [addingToDay, setAddingToDay] = useState<number | null>(null);
   const [query, setQuery] = useState('');
@@ -107,14 +208,35 @@ export default function AddProgramModal({ navigation, route }: Props) {
     setQuery('');
   };
 
-  const removeExercise = (dayIndex: number, exId: number) =>
+  const removeExercise = useCallback((dayIndex: number, exId: number) => {
     setDays(prev => prev.map((d, i) =>
       i === dayIndex ? { ...d, exercises: d.exercises.filter(e => e.id !== exId) } : d
     ));
+  }, []);
+
+  const reorderExercise = useCallback((dayIndex: number, fromIndex: number, toIndex: number) => {
+    setDays(prev => prev.map((d, i) => {
+      if (i !== dayIndex) return d;
+      const reordered = [...d.exercises];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+      return { ...d, exercises: reordered };
+    }));
+  }, []);
 
   const addDay = () => {
     if (days.length >= MAX_DAYS) return;
     setDays(prev => [...prev, { dayNumber: prev.length + 1, exercises: [] }]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  const duplicateDay = (dayIndex: number) => {
+    if (days.length >= MAX_DAYS) return;
+    setDays(prev => {
+      const clone = { ...prev[dayIndex], exercises: [...prev[dayIndex].exercises] };
+      const next = [...prev, clone];
+      return next.map((d, i) => ({ ...d, dayNumber: i + 1 }));
+    });
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
@@ -170,7 +292,12 @@ export default function AddProgramModal({ navigation, route }: Props) {
         ))}
       </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        ref={scrollRef} 
+        contentContainerStyle={styles.body} 
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={!isDragging} // Disable parent scrolling while dragging
+      >
 
         {step === 1 && <>
           <Text style={styles.heading}>Name your program</Text>
@@ -202,41 +329,45 @@ export default function AddProgramModal({ navigation, route }: Props) {
           <TextInput style={styles.input} keyboardType="numeric" value={timePerWorkout} onChangeText={setTimePerWorkout} placeholderTextColor={colors.secondary} />
         </>}
 
-        {step === 5 && <>
+        {step === 5 && <> 
           {days.map((day, di) => (
-            <View key={di} style={styles.dayBlock}>
+            <AnimatedDay key={`day-block-${day.dayNumber}`} onRemove={() => removeDay(di)}>
+              {(animateRemove) => (
+            <View style={styles.dayBlock}>
               <View style={styles.dayHeader}>
                 <Text style={styles.dayTitle}>Day {day.dayNumber}</Text>
                 <View style={styles.dayActions}>
                   {di > 0 && (
                     <Pressable onPress={() => swapDays(di, di - 1)} hitSlop={8}>
-                      <Text style={styles.dayAction}>↑</Text>
+                      <Text style={styles.dayAction}>▲</Text>
                     </Pressable>
                   )}
                   {di < days.length - 1 && (
                     <Pressable onPress={() => swapDays(di, di + 1)} hitSlop={8}>
-                      <Text style={styles.dayAction}>↓</Text>
+                      <Text style={styles.dayAction}>▼</Text>
+                    </Pressable>
+                  )}
+                  {days.length < MAX_DAYS && (
+                    <Pressable onPress={() => duplicateDay(di)} hitSlop={8}>
+                      <Text style={styles.dayAction}>⧉</Text>
                     </Pressable>
                   )}
                   {days.length > 1 && (
-                    <Pressable onPress={() => removeDay(di)} hitSlop={8}>
+                    <Pressable onPress={animateRemove} hitSlop={8}>
                       <Text style={styles.removeDay}>Remove</Text>
                     </Pressable>
                   )}
                 </View>
               </View>
 
-              {day.exercises.map(ex => (
-                <View key={ex.id} style={styles.exRow}>
-                  <View style={styles.exInfo}>
-                    <Text style={styles.exName}>{ex.name}</Text>
-                    <Text style={styles.exMeta}>{ex.sets} × {ex.reps}  ·  {ex.muscle}</Text>
-                  </View>
-                  <Pressable onPress={() => removeExercise(di, ex.id)} hitSlop={8}>
-                    <Text style={styles.exRemove}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
+              <DayExerciseList
+                day={day}
+                dayIndex={di}
+                reorderExercise={reorderExercise}
+                removeExercise={removeExercise}
+                onDragBegin={handleDragBegin}
+                onDragEnd={handleDragEnd}
+              />
 
               {addingToDay === di ? (
                 <View style={styles.picker}>
@@ -291,6 +422,8 @@ export default function AddProgramModal({ navigation, route }: Props) {
                 </Pressable>
               )}
             </View>
+              )}
+            </AnimatedDay>
           ))}
 
           {days.length < MAX_DAYS && (
@@ -377,11 +510,14 @@ const styles = StyleSheet.create({
   removeDay: { ...typography.caption, color: colors.secondary },
 
   // exercise rows
-  exRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  exRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, gap: 8 },
+  exRowDragging: { backgroundColor: colors.surface, borderRadius: 8, borderTopWidth: 0 },
+  dragHandle: { paddingHorizontal: 4 },
+  dragHandleIcon: { color: colors.secondary, fontSize: 20, letterSpacing: -1 },
   exInfo: { flex: 1 },
   exName: { ...typography.body },
   exMeta: { ...typography.caption, marginTop: 2 },
-  exRemove: { color: colors.secondary, fontSize: 20, paddingLeft: 12 },
+  exRemove: { color: colors.secondary, fontSize: 20, paddingLeft: 4 },
 
   // add exercise button
   addExBtn: { paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.secondary, borderRadius: 8, marginTop: 4 },

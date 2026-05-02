@@ -1,13 +1,24 @@
 import json
+import os
 from contextlib import asynccontextmanager
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.security import APIKeyHeader
 
 from src.models.utils import load_model, load_exercise_map, MODEL_NAME, ALIAS_PROD
 from src.api.schemas import PredictRequest, PredictResponse, LogRequest, _FIELD_TO_COL, _FEATURE_COLS
 from src.api.db import SessionLocal, WorkoutLog, create_tables
 from src.data.consts import lookup_pct_1rm
+
+_API_KEY = os.environ.get("API_KEY", "")
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def verify_api_key(key: str | None = Security(_api_key_header)):
+    if not _API_KEY:
+        return  # not configured — open in dev
+    if key != _API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 _model = None
 _version = None
@@ -45,7 +56,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Overload Predictor", lifespan=lifespan)
+app = FastAPI(title="Overload Predictor", lifespan=lifespan, dependencies=[Depends(verify_api_key)])
 
 # ENDPOINTS
 

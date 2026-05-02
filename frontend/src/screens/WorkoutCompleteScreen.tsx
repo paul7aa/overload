@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, typography } from '../theme';
 import { ExerciseLog, LastSessionEntry, RootStackParamList, WorkoutRecord } from '../types';
-import { epleyOneRm, equipmentFlags, goalFlags, levelFlags, logWorkout } from '../api/client';
+import { epleyOneRm, equipmentFlags, goalFlags, levelFlags, logWorkout, tuchschererOneRm } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutComplete'>;
 
@@ -59,6 +59,7 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
       const history: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
       history.unshift(record);
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      console.log('[WorkoutComplete] saved record:', JSON.stringify(record, null, 2));
 
       // Load previous session data for lag values
       const lastRaw = await AsyncStorage.getItem(`last_session_${program.id}`);
@@ -76,7 +77,7 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
           completed[0],
         );
         const isBodyweight = bestSet.weight === 0;
-        const oneRm = isBodyweight ? 0 : epleyOneRm(bestSet.weight, bestSet.reps);
+        const oneRm = isBodyweight ? 0 : tuchschererOneRm(bestSet.weight, bestSet.reps, bestSet.rpe);
 
         // POST /log from week 2 onward, when lag data exists and exercise has weight
         const prev = lastSession[log.exercise.name];
@@ -108,12 +109,10 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
 
       await AsyncStorage.setItem(`last_session_${program.id}`, JSON.stringify(newLastSession));
 
-      // Record program start date on first completion (used to derive week number)
-      const startKey = `program_start_${program.id}`;
-      const existingStart = await AsyncStorage.getItem(startKey);
-      if (!existingStart) {
-        await AsyncStorage.setItem(startKey, new Date().toISOString());
-      }
+      // Increment per-day completion counter (used to derive week number independently per day)
+      const dayCountKey = `day_count_${program.id}_${record.dayNumber}`;
+      const prevCount = await AsyncStorage.getItem(dayCountKey);
+      await AsyncStorage.setItem(dayCountKey, String((prevCount ? parseInt(prevCount) : 0) + 1));
     };
     save();
   }, []);
