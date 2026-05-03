@@ -75,6 +75,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://overload:overload@postgres:5432/overload
+    volumes:
+      - ./data:/app/data
     depends_on:
       mlflow:
         condition: service_healthy

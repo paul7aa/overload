@@ -3,8 +3,9 @@ import os
 from contextlib import asynccontextmanager
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 
 from src.models.utils import load_model, load_exercise_map, MODEL_NAME, ALIAS_PROD
 from src.api.schemas import PredictRequest, PredictResponse, LogRequest, _FIELD_TO_COL, _FEATURE_COLS
@@ -24,6 +25,7 @@ _model = None
 _version = None
 _exercise_map: dict[str, int] = {}
 _exercise_list: list[dict] = []
+_exercise_info: dict[str, dict] = {}  # lowercase name → full dataset entry
 
 
 def _build_exercise_list(exercise_map: dict[str, int]) -> list[dict]:
@@ -48,15 +50,24 @@ def _build_exercise_list(exercise_map: dict[str, int]) -> list[dict]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _model, _version, _exercise_map, _exercise_list
+    global _model, _version, _exercise_map, _exercise_list, _exercise_info
     create_tables()
     _model, _version = load_model()
     _exercise_map = load_exercise_map()
     _exercise_list = _build_exercise_list(_exercise_map)
+    try:
+        with open("data/exercises_dataset/data/exercises.json") as f:
+            _exercise_info = {ex["name"].lower(): ex for ex in json.load(f)}
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
     yield
 
 
 app = FastAPI(title="Overload Predictor", lifespan=lifespan, dependencies=[Depends(verify_api_key)])
+
+_MEDIA_DIR = "data/exercises_dataset"
+if os.path.isdir(_MEDIA_DIR):
+    app.mount("/media", StaticFiles(directory=_MEDIA_DIR), name="media")
 
 # ENDPOINTS
 
@@ -75,6 +86,20 @@ def health():
 @app.get("/exercises")
 def list_exercises():
     return _exercise_list
+
+
+@app.get("/exercise-info")
+def get_exercise_info(name: str = Query(..., description="Exercise name (case-insensitive)")):
+    entry = _exercise_info.get(name.lower())
+    if not entry:
+        raise HTTPException(404, f"No info found for '{name}'")
+    return {
+        "name": entry["name"],
+        "description": entry.get("instructions", {}).get("en", ""),
+        "steps": entry.get("instruction_steps", {}).get("en", []),
+        "image_url": f"/media/{entry['image']}" if entry.get("image") else None,
+        "gif_url": f"/media/{entry['gif_url']}" if entry.get("gif_url") else None,
+    }
 
 
 @app.post("/predict", response_model=PredictResponse)
@@ -111,7 +136,7 @@ def predict(req: PredictRequest):
         delta_pct_1rm=round(delta_pct_1rm, 4),
         next_sets=max(1, min(10, round(req.lag_sets + delta_sets))),
         next_reps=max(1, min(12, round(req.lag_reps + delta_reps))),
-        next_weight_kg=round((lag_pct_1rm + delta_pct_1rm) * req.one_rm, 2),
+        next_weight_kg=round(round((lag_pct_1rm + delta_pct_1rm) * req.one_rm / 5) * 5, 2),
     )
 
 

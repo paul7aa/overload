@@ -64,12 +64,14 @@ Input:  (exercise_id, week, lag_sets, lag_reps, lag_pct_1rm, level, goal, equipm
 Output: (Δsets, Δreps, Δpct_1rm)
 ```
 
-At prediction time the user's 1RM (estimated via the Epley formula from their last session) is multiplied by the predicted `pct_1rm` to produce an absolute weight:
+At prediction time the user's 1RM (estimated from their last session via the Tuchscherer table) is multiplied by the predicted `pct_1rm` to produce an absolute weight:
 
 ```
 next_weight_kg = (lag_pct_1rm + Δpct_1rm) × estimated_1rm
-estimated_1rm  = weight × (1 + reps / 30)   ← Epley formula
+estimated_1rm  = weight / pct_1rm(reps, rpe)   ← Tuchscherer table
 ```
+
+The Epley formula (`weight × (1 + reps/30)`) is only used to rank sets within a session when identifying the "best" set — it is not used for prediction. Tuchscherer keeps the 1RM estimate consistent with `lag_pct_1rm`, which is also derived from the same table.
 
 ---
 
@@ -114,12 +116,14 @@ Prefect retraining_pipeline
 ## API
 
 ```
-POST /predict       Get next week's prescription
-POST /log           Record a completed session (feeds retraining)
-GET  /exercises     List all known exercises
-GET  /health        Model status + version
-POST /reload        Hot-swap to latest Production model
-GET  /docs          Interactive Swagger UI
+POST /predict            Get next week's prescription
+POST /log                Record a completed session (feeds retraining)
+GET  /exercises          List all known exercises
+GET  /exercise-info      Exercise description, step-by-step instructions, image and GIF URLs
+GET  /media/{path}       Static serving of exercise images and GIFs
+GET  /health             Model status + version
+POST /reload             Hot-swap to latest Production model
+GET  /docs               Interactive Swagger UI
 ```
 
 ### Example
@@ -146,6 +150,8 @@ Exercise names sent to `/predict` and `/log` are matched case-insensitively agai
 
 The app uses 484 canonical exercises sourced from the ExerciseDB dataset. Only exercises that appear in the Boostcamp training data are included. The exercise list is bundled statically in the mobile app — no network request needed for search.
 
+The full ExerciseDB dataset (`backend/data/exercises_dataset/`) provides per-exercise descriptions, step-by-step instructions, a static image, and an animated GIF for each movement. These are served at runtime via FastAPI's `StaticFiles` mount (`GET /media/...`) — no on-device storage required. The `api` service mounts `./data` as a volume so the files are never baked into the Docker image.
+
 ---
 
 ## Project structure
@@ -157,6 +163,10 @@ overload/
 │   │   ├── programs_detailed.csv         # Boostcamp dataset (not committed)
 │   │   ├── exercise_map.json             # Canonical exercise name → integer ID
 │   │   ├── best_params.json              # Saved Optuna hyperparameters (not committed)
+│   │   ├── exercises_dataset/            # ExerciseDB — descriptions, images, GIFs (not committed)
+│   │   │   ├── data/exercises.json
+│   │   │   ├── images/
+│   │   │   └── videos/
 │   │   ├── map_exercises.py              # Maps messy training names → canonical names
 │   │   └── generate_frontend_exercises.py
 │   ├── src/
@@ -181,7 +191,7 @@ overload/
 └── frontend/
     ├── src/
     │   ├── api/
-    │   │   └── client.ts                 # predict(), logWorkout(), flag helpers
+    │   │   └── client.ts                 # predict(), logWorkout(), fetchExerciseInfo(), flag helpers
     │   ├── data/
     │   │   └── exercises.json            # 484 canonical exercises (bundled)
     │   ├── screens/
@@ -239,6 +249,6 @@ EXPO_PUBLIC_API_URL=http://<your-machine-ip>:8000
 - [x] PostgreSQL session store
 - [x] React Native mobile app (Expo)
 - [x] On-device workout history
-- [ ] `/predict` wired into active workout screen (week 2+)
+- [x] `/predict` wired into active workout screen (week 2+)
 - [ ] Push notifications for retraining trigger
 - [ ] Scheduled Prefect deployment

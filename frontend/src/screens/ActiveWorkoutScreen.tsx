@@ -1,13 +1,14 @@
-import { Alert, Animated, Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme';
-import { ExerciseLog, LastSessionEntry, ProgramExercise, RootStackParamList, WorkoutRecord, WorkoutDay } from '../types';
+import { Exercise, ExerciseLog, LastSessionEntry, ProgramExercise, RootStackParamList, WorkoutRecord, WorkoutDay } from '../types';
 import { HISTORY_KEY } from './WorkoutCompleteScreen';
-import { equipmentFlags, goalFlags, levelFlags, predict, PredictResponse } from '../api/client';
+import { equipmentFlags, ExerciseInfo, fetchExerciseInfo, goalFlags, levelFlags, predict, PredictResponse } from '../api/client';
+import EXERCISES from '../data/exercises.json';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWorkout'>;
 
@@ -57,6 +58,11 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const [pickedDay, setPickedDay] = useState<WorkoutDay | null>(null);
   const [predictions, setPredictions] = useState<Record<string, PredictResponse>>({});
   const [predictionsStatus, setPredictionsStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
+  const [swapModalVisible, setSwapModalVisible] = useState(false);
+  const [swapQuery, setSwapQuery] = useState('');
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [exerciseInfo, setExerciseInfo] = useState<ExerciseInfo | null>(null);
+  const lastSessionRef = useRef<Record<string, LastSessionEntry>>({});
   const isFinishing = useRef(false);
   const startTime = useRef(0);
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
@@ -146,6 +152,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     setPredictionsStatus('idle');
 
     const lastSession: Record<string, LastSessionEntry> = lastSessionRaw ? JSON.parse(lastSessionRaw) : {};
+    lastSessionRef.current = lastSession;
     const eligibleExercises = day.exercises.filter(ex => lastSession[ex.name]?.oneRm > 0);
     if (eligibleExercises.length === 0) return;
 
@@ -273,6 +280,51 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     }
   };
 
+  const swapResults = swapQuery.trim().length >= 2
+    ? (EXERCISES as Exercise[])
+        .filter(ex => ex.name.toLowerCase().includes(swapQuery.toLowerCase().trim()))
+        .slice(0, 30)
+    : [];
+
+  const swapExercise = (newEx: Exercise) => {
+    const oldEx = logs[exerciseIndex].exercise;
+    const newProgramEx: ProgramExercise = { ...newEx, sets: oldEx.sets, reps: oldEx.reps };
+    setLogs(prev => prev.map((log, i) => i !== exerciseIndex ? log : {
+      ...log,
+      exercise: newProgramEx,
+      sets: Array.from({ length: oldEx.sets }, () => ({ reps: oldEx.reps, rpe: 8, weight: 0, completed: false })),
+    }));
+    setPredictions(prev => { const next = { ...prev }; delete next[oldEx.name]; return next; });
+    setCurrentWeight('');
+    setCurrentReps(newProgramEx.reps);
+    setCurrentRpe(8);
+    setEditingSetIndex(null);
+    setSwapModalVisible(false);
+    setSwapQuery('');
+
+    const prev = lastSessionRef.current[newEx.name];
+    if (prev?.oneRm > 0) {
+      const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program) };
+      predict({
+        exercise: newEx.name, one_rm: prev.oneRm,
+        lag_sets: prev.sets, lag_reps: prev.reps, lag_rpe: prev.rpe,
+        week: weekNumber, day: currentLog.dayNumber,
+        program_length: program.lengthWeeks, time_per_workout: program.timePerWorkout,
+        number_of_exercises: logs.length, weeks_gap: 1, ...flags,
+      }).then(res => setPredictions(p => ({ ...p, [newEx.name]: res })))
+        .catch(err => console.warn(`[predict] failed for "${newEx.name}":`, err));
+    }
+  };
+
+  const openInfoModal = async () => {
+    setInfoModalVisible(true);
+    if (!exerciseInfo || exerciseInfo.name.toLowerCase() !== ex.name.toLowerCase()) {
+      setExerciseInfo(null);
+      const info = await fetchExerciseInfo(ex.name);
+      setExerciseInfo(info);
+    }
+  };
+
   const workoutComplete = logs.every(log => log.sets.every(s => s.completed));
 
   const finishWorkout = () => {
@@ -322,10 +374,82 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
       </ScrollView>
 
       <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseCounter}>{exerciseIndex + 1} / {logs.length}</Text>
-        <Text style={styles.exerciseName}>{ex.name}</Text>
+        <View style={styles.exerciseHeaderTop}>
+          <Text style={styles.exerciseCounter}>{exerciseIndex + 1} / {logs.length}</Text>
+          <Pressable onPress={() => setSwapModalVisible(true)}>
+            <Text style={styles.swapBtn}>Change exercise</Text>
+          </Pressable>
+        </View>
+        <View style={styles.exerciseNameRow}>
+          <Text style={[styles.exerciseName, { flex: 1, flexShrink: 1, marginRight: 12 }]} numberOfLines={2} ellipsizeMode="tail">{ex.name}</Text>
+          <Pressable onPress={openInfoModal} style={styles.infoBtn} hitSlop={8}>
+            <Text style={styles.infoBtnText}>ℹ</Text>
+          </Pressable>
+        </View>
         <Text style={styles.exerciseMuscle}>{ex.muscle}</Text>
       </View>
+
+      <Modal visible={swapModalVisible} animationType="slide" onRequestClose={() => setSwapModalVisible(false)}>
+        <View style={styles.swapModal}>
+          <View style={styles.swapHeader}>
+            <Text style={styles.swapTitle}>Change Exercise</Text>
+            <Pressable onPress={() => { setSwapModalVisible(false); setSwapQuery(''); }}>
+              <Text style={styles.swapClose}>✕</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            style={styles.swapInput}
+            placeholder="Search exercises…"
+            placeholderTextColor={colors.secondary}
+            value={swapQuery}
+            onChangeText={setSwapQuery}
+            autoFocus
+          />
+          <FlatList
+            data={swapResults}
+            keyExtractor={item => String(item.id)}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <Pressable style={styles.swapResult} onPress={() => swapExercise(item)}>
+                <Text style={styles.swapResultName}>{item.name}</Text>
+                <Text style={styles.swapResultMuscle}>{item.muscle}</Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      </Modal>
+
+      <Modal visible={infoModalVisible} animationType="slide" onRequestClose={() => setInfoModalVisible(false)}>
+        <View style={styles.infoModal}>
+          <View style={styles.infoModalHeader}>
+            <Text style={styles.infoModalTitle}>{ex.name}</Text>
+            <Pressable onPress={() => setInfoModalVisible(false)}>
+              <Text style={styles.swapClose}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.infoModalBody}>
+            {exerciseInfo === null ? (
+              <ActivityIndicator style={{ marginTop: 40 }} color={colors.accent} />
+            ) : (
+              <>
+                {exerciseInfo.gif_url && (
+                  <Image
+                    source={{ uri: `${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'}${exerciseInfo.gif_url}` }}
+                    style={styles.exerciseGif}
+                    resizeMode="contain"
+                  />
+                )}
+                {exerciseInfo.steps.map((step, i) => (
+                  <View key={i} style={styles.infoStep}>
+                    <Text style={styles.infoStepNum}>{i + 1}</Text>
+                    <Text style={styles.infoStepText}>{step}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
 
       <View style={styles.targetRow}>
         <Text style={styles.targetLabel}>Target</Text>
@@ -541,7 +665,7 @@ const styles = StyleSheet.create({
   exerciseHeaderTop: { flexDirection: 'row' as const, justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   exerciseCounter: { ...typography.caption },
   timerText: { ...typography.caption, fontWeight: '600' as const, color: colors.primary },
-  exerciseName: { ...typography.heading, fontSize: 24, marginBottom: 2 },
+  exerciseName: { ...typography.heading, fontSize: 24, marginBottom: 2, marginTop:10 },
   exerciseMuscle: { ...typography.caption },
 
   // target
@@ -625,4 +749,50 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   predFailedText: { ...typography.caption, fontSize: 12, color: colors.secondary },
+
+  swapBtn: { ...typography.caption, color: colors.accent, fontSize: 13 },
+
+  swapModal: { flex: 1, backgroundColor: colors.background },
+  swapHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  swapTitle: { ...typography.heading, fontSize: 20 },
+  swapClose: { color: colors.secondary, fontSize: 18, paddingLeft: 16 },
+  swapInput: {
+    margin: 16, padding: 12, borderRadius: 10,
+    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface, color: colors.primary, fontSize: 16,
+  },
+  swapResult: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  swapResultName: { ...typography.body, flex: 1 },
+  swapResultMuscle: { ...typography.caption, fontSize: 12, color: colors.secondary },
+
+  // exercise name row with info button
+  exerciseNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  infoBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  infoBtnText: { color: colors.accent, fontSize: 13, fontWeight: '700' as const, lineHeight: 16 },
+
+  // exercise info modal
+  infoModal: { flex: 1, backgroundColor: colors.background },
+  infoModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  infoModalTitle: { ...typography.heading, fontSize: 18, flex: 1, marginRight: 12 },
+  infoModalBody: { padding: 20, gap: 16 },
+  exerciseGif: { width: '100%', height: 220, borderRadius: 10, backgroundColor: colors.surface, marginBottom: 8 },
+  infoStep: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  infoStepNum: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent + '22',
+    borderWidth: 1, borderColor: colors.accent,
+    textAlign: 'center', lineHeight: 22, fontSize: 12, fontWeight: '700' as const, color: colors.accent,
+  },
+  infoStepText: { ...typography.body, flex: 1, fontSize: 14, lineHeight: 22 },
 });

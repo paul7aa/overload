@@ -168,3 +168,21 @@ export async function logWorkout(req: LogRequest): Promise<void> {
   });
   if (!res.ok) throw new Error(`log ${res.status}`);
 }
+
+export type ExerciseInfo = {
+  name: string;
+  description: string;
+  steps: string[];
+  image_url: string | null;
+  gif_url: string | null;
+};
+
+export async function fetchExerciseInfo(name: string): Promise<ExerciseInfo | null> {
+  try {
+    const res = await fetch(`${BASE}/exercise-info?name=${encodeURIComponent(name)}`, { headers: HEADERS });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
