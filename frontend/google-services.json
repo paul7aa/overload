@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "585472551351",
+    "project_id": "overload-7ff75",
+    "storage_bucket": "overload-7ff75.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:585472551351:android:784252902a72f1def82032",
+        "android_client_info": {
+          "package_name": "com.paul.overload"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNYMuzjCyUtjDpnjHEQPELhYISEvM_vbk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

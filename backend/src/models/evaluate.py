@@ -31,7 +31,7 @@ WEIGHTS = {
 }
 
 # challenger must beat champion by at least this much to be promoted (guards against noise)
-IMPROVEMENT_THRESHOLD = 0.00
+IMPROVEMENT_THRESHOLD = 0.02
 
 
 def weighted_rmse(metrics: dict[str, float]) -> float:

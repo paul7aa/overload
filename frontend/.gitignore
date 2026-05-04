@@ -33,8 +33,7 @@ yarn-error.*
 # local env files
 .env*.local
 
-# Firebase — never commit these
-google-services.json
+# Firebase
 *adminsdk*.json
 
 # typescript
