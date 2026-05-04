@@ -59,3 +59,7 @@ frontend/.expo/
 frontend/.expo-shared/
 frontend/dist/
 frontend/web-build/
+
+# Firebase stuff
+*adminsdk*.json
+frontend/google-services.json

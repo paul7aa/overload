@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography } from '../theme';
 import { ExerciseLog, LastSessionEntry, RootStackParamList, WorkoutRecord } from '../types';
 import { epleyOneRm, equipmentFlags, goalFlags, levelFlags, logWorkout, tuchschererOneRm } from '../api/client';
 
@@ -54,14 +53,12 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     const save = async () => {
-      // Save to workout history
       const raw = await AsyncStorage.getItem(HISTORY_KEY);
       const history: WorkoutRecord[] = raw ? JSON.parse(raw) : [];
       history.unshift(record);
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
       console.log('[WorkoutComplete] saved record:', JSON.stringify(record, null, 2));
 
-      // Load previous session data for lag values
       const lastRaw = await AsyncStorage.getItem(`last_session_${program.id}`);
       const lastSession: Record<string, LastSessionEntry> = lastRaw ? JSON.parse(lastRaw) : {};
       const newLastSession: Record<string, LastSessionEntry> = { ...lastSession };
@@ -79,7 +76,6 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
         const isBodyweight = bestSet.weight === 0;
         const oneRm = isBodyweight ? 0 : tuchschererOneRm(bestSet.weight, bestSet.reps, bestSet.rpe);
 
-        // POST /log from week 2 onward, when lag data exists and exercise has weight
         const prev = lastSession[log.exercise.name];
         if (!isBodyweight && weekNumber >= 2 && prev && prev.oneRm > 0) {
           logWorkout({
@@ -101,15 +97,14 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
             ...levelFlags(program),
             ...goalFlags(program),
             ...equipmentFlags(program),
-          }).catch(() => {}); // fire-and-forget
+          }).catch(() => {});
         }
 
-        newLastSession[log.exercise.name] = { sets: completed.length, reps: avgReps, rpe: avgRpe, oneRm };
+        newLastSession[log.exercise.name] = { sets: completed.length, reps: avgReps, rpe: avgRpe, oneRm, weight: bestSet.weight };
       }
 
       await AsyncStorage.setItem(`last_session_${program.id}`, JSON.stringify(newLastSession));
 
-      // Increment per-day completion counter (used to derive week number independently per day)
       const dayCountKey = `day_count_${program.id}_${record.dayNumber}`;
       const prevCount = await AsyncStorage.getItem(dayCountKey);
       await AsyncStorage.setItem(dayCountKey, String((prevCount ? parseInt(prevCount) : 0) + 1));
@@ -118,98 +113,61 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.check}>✓</Text>
-        <Text style={styles.title}>Workout Complete</Text>
-        <Text style={styles.subtitle}>{program.name} · Day {record.dayNumber}</Text>
+    <View className="flex-1 bg-background">
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+        <Text className="text-5xl text-center text-accent">✓</Text>
+        <Text className="text-28 font-outfit-bold text-accent text-center">Workout Complete</Text>
+        <Text className="text-13 font-outfit text-secondary text-center mb-2">{program.name} · Day {record.dayNumber}</Text>
 
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{formatDuration(durationSeconds)}</Text>
-            <Text style={styles.statLabel}>Duration</Text>
+        <View className="flex-row bg-surface rounded-xl border border-border p-5 items-center">
+          <View className="flex-1 items-center gap-1">
+            <Text className="text-lg font-outfit text-primary font-bold">{formatDuration(durationSeconds)}</Text>
+            <Text className="text-xs font-outfit text-secondary">Duration</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{totalSets}</Text>
-            <Text style={styles.statLabel}>Sets</Text>
+          <View className="w-px h-9 bg-border" />
+          <View className="flex-1 items-center gap-1">
+            <Text className="text-lg font-outfit text-primary font-bold">{totalSets}</Text>
+            <Text className="text-xs font-outfit text-secondary">Sets</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{Math.round(totalVolume).toLocaleString()} kg</Text>
-            <Text style={styles.statLabel}>Volume</Text>
+          <View className="w-px h-9 bg-border" />
+          <View className="flex-1 items-center gap-1">
+            <Text className="text-lg font-outfit text-primary font-bold">{Math.round(totalVolume).toLocaleString()} kg</Text>
+            <Text className="text-xs font-outfit text-secondary">Volume</Text>
           </View>
         </View>
 
         {record.exercises.map((ex, i) => (
-          <View key={i} style={styles.exerciseCard}>
-            <View style={styles.exerciseHeader}>
-              <Text style={styles.exerciseName}>{ex.name}</Text>
-              <Text style={styles.exerciseMuscle}>{ex.muscle}</Text>
+          <View key={i} className="bg-surface rounded-[10px] border border-border p-3.5 gap-2">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-base font-outfit text-primary font-semibold flex-1">{ex.name}</Text>
+              <Text className="text-xs font-outfit text-secondary">{ex.muscle}</Text>
             </View>
             {ex.sets.map((set, si) => (
-              <View key={si} style={styles.setRow}>
-                <Text style={styles.setNum}>Set {si + 1}</Text>
-                <Text style={styles.setDetail}>{set.weight} kg</Text>
-                <Text style={styles.setDetail}>{set.reps} reps</Text>
-                <Text style={styles.setDetail}>RPE {set.rpe}</Text>
+              <View key={si} className="flex-row items-center gap-2">
+                <Text className="text-13 font-outfit text-secondary w-11">Set {si + 1}</Text>
+                <Text className="text-13 font-outfit text-secondary flex-1 text-center">{set.weight} kg</Text>
+                <Text className="text-13 font-outfit text-secondary flex-1 text-center">{set.reps} reps</Text>
+                <Text className="text-13 font-outfit text-secondary flex-1 text-center">RPE {set.rpe}</Text>
               </View>
             ))}
           </View>
         ))}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: bottom || 16 }]}>
-        <Pressable style={styles.historyBtn} onPress={() => navigation.navigate('WorkoutHistory')}>
-          <Text style={styles.historyBtnText}>View History</Text>
+      <View className="flex-row gap-2.5 p-4" style={{ paddingBottom: bottom || 16 }}>
+        <Pressable
+          className="flex-1 p-3.5 rounded-[10px] border border-border items-center"
+          onPress={() => navigation.navigate('WorkoutHistory')}
+        >
+          <Text className="text-base font-outfit text-primary text-sm">View History</Text>
         </Pressable>
-        <Pressable style={styles.homeBtn} onPress={() => navigation.popToTop()}>
-          <Text style={styles.homeBtnText}>Done</Text>
+        <Pressable
+          className="flex-1 p-3.5 rounded-[10px] bg-accent items-center"
+          onPress={() => navigation.popToTop()}
+        >
+          <Text className="text-background font-bold text-sm">Done</Text>
         </Pressable>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 24, gap: 16 },
-
-  check: { fontSize: 48, textAlign: 'center', color: colors.accent },
-  title: { ...typography.heading, textAlign: 'center', fontSize: 28 },
-  subtitle: { ...typography.caption, textAlign: 'center', marginBottom: 8 },
-
-  statsRow: {
-    flexDirection: 'row', backgroundColor: colors.surface,
-    borderRadius: 12, borderWidth: 1, borderColor: colors.border,
-    padding: 20, alignItems: 'center',
-  },
-  stat: { flex: 1, alignItems: 'center', gap: 4 },
-  statValue: { ...typography.body, fontSize: 18, fontWeight: '700' as const },
-  statLabel: { ...typography.caption, fontSize: 12 },
-  statDivider: { width: 1, height: 36, backgroundColor: colors.border },
-
-  exerciseCard: {
-    backgroundColor: colors.surface, borderRadius: 10,
-    borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8,
-  },
-  exerciseHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exerciseName: { ...typography.body, fontWeight: '600' as const, flex: 1 },
-  exerciseMuscle: { ...typography.caption, fontSize: 12 },
-
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  setNum: { ...typography.caption, width: 44, fontSize: 12 },
-  setDetail: { ...typography.caption, flex: 1, textAlign: 'center', fontSize: 13 },
-
-  footer: { flexDirection: 'row', gap: 10, padding: 16 },
-  historyBtn: {
-    flex: 1, padding: 14, borderRadius: 10,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center',
-  },
-  historyBtnText: { ...typography.body, fontSize: 14 },
-  homeBtn: {
-    flex: 1, padding: 14, borderRadius: 10,
-    backgroundColor: colors.accent, alignItems: 'center',
-  },
-  homeBtnText: { color: colors.background, fontWeight: '700' as const, fontSize: 14 },
-});

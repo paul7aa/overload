@@ -54,7 +54,7 @@ services:
 
   worker:
     build: .
-    command: prefect worker start --pool default-agent-pool
+    command: python src/pipeline/flow.py
     env_file: .env
     environment:
       DATABASE_URL: postgresql://overload:overload@postgres:5432/overload

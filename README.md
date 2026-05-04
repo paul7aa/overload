@@ -250,5 +250,5 @@ EXPO_PUBLIC_API_URL=http://<your-machine-ip>:8000
 - [x] React Native mobile app (Expo)
 - [x] On-device workout history
 - [x] `/predict` wired into active workout screen (week 2+)
-- [ ] Push notifications for retraining trigger
-- [ ] Scheduled Prefect deployment
+- [x] Push notifications for retraining trigger
+- [x] Scheduled Prefect deployment

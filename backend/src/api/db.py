@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
+from sqlalchemy import Column, DateTime, Float, Integer, String, UniqueConstraint, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = os.environ.get(
@@ -70,6 +70,18 @@ class WorkoutLog(Base):
     equipment_dumbbell_only = Column(Integer, default=0)
     equipment_full_gym = Column(Integer, default=0)
     equipment_garage_gym = Column(Integer, default=0)
+
+
+class PushToken(Base):
+    __tablename__ = "push_tokens"
+    __table_args__ = (UniqueConstraint("token"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token = Column(String, nullable=False)
+    registered_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 
 def create_tables() -> None:

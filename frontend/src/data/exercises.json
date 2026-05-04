@@ -42,6 +42,12 @@
     "full": "Assisted Triceps Dip (Kneeling)"
   },
   {
+    "id": 37,
+    "name": "Back Extension On Exercise Ball",
+    "muscle": "back",
+    "full": "Back Extension On Exercise Ball"
+  },
+  {
     "id": 41,
     "name": "Balance Board",
     "muscle": "upper legs",
@@ -52,12 +58,6 @@
     "name": "Band Alternating Biceps Curl",
     "muscle": "upper arms",
     "full": "Band Alternating Biceps Curl"
-  },
-  {
-    "id": 43,
-    "name": "Band Alternating V-Up",
-    "muscle": "waist",
-    "full": "Band Alternating V-Up"
   },
   {
     "id": 46,
@@ -76,12 +76,6 @@
     "name": "Band Close-Grip Pulldown",
     "muscle": "back",
     "full": "Band Close-Grip Pulldown"
-  },
-  {
-    "id": 51,
-    "name": "Band Concentration Curl",
-    "muscle": "upper arms",
-    "full": "Band Concentration Curl"
   },
   {
     "id": 54,
@@ -168,6 +162,12 @@
     "full": "Band Side Triceps Extension"
   },
   {
+    "id": 77,
+    "name": "Band Single Leg Calf Raise",
+    "muscle": "lower legs",
+    "full": "Band Single Leg Calf Raise"
+  },
+  {
     "id": 79,
     "name": "Band Single Leg Split Squat",
     "muscle": "upper legs",
@@ -196,12 +196,6 @@
     "name": "Band Stiff Leg Deadlift",
     "muscle": "upper legs",
     "full": "Band Stiff Leg Deadlift"
-  },
-  {
-    "id": 88,
-    "name": "Band Straight Leg Deadlift",
-    "muscle": "back",
-    "full": "Band Straight Leg Deadlift"
   },
   {
     "id": 91,
@@ -1092,12 +1086,6 @@
     "full": "Curl-Up"
   },
   {
-    "id": 453,
-    "name": "Cycle Cross Trainer",
-    "muscle": "cardio",
-    "full": "Cycle Cross Trainer"
-  },
-  {
     "id": 454,
     "name": "Dead Bug",
     "muscle": "waist",
@@ -1290,6 +1278,12 @@
     "full": "Dumbbell Incline Inner Biceps Curl"
   },
   {
+    "id": 537,
+    "name": "Dumbbell Incline Palm-In Press",
+    "muscle": "chest",
+    "full": "Dumbbell Incline Palm-In Press"
+  },
+  {
     "id": 539,
     "name": "Dumbbell Incline Raise",
     "muscle": "shoulders",
@@ -1368,12 +1362,6 @@
     "full": "Dumbbell Lying Triceps Extension"
   },
   {
-    "id": 581,
-    "name": "Dumbbell Lying Wide Curl",
-    "muscle": "upper arms",
-    "full": "Dumbbell Lying Wide Curl"
-  },
-  {
     "id": 582,
     "name": "Dumbbell Neutral Grip Bench Press",
     "muscle": "upper arms",
@@ -1434,12 +1422,6 @@
     "full": "Dumbbell Preacher Curl"
   },
   {
-    "id": 632,
-    "name": "Dumbbell Prone Incline Curl",
-    "muscle": "upper arms",
-    "full": "Dumbbell Prone Incline Curl"
-  },
-  {
     "id": 634,
     "name": "Dumbbell Pullover",
     "muscle": "chest",
@@ -1456,6 +1438,12 @@
     "name": "Dumbbell Rear Fly",
     "muscle": "shoulders",
     "full": "Dumbbell Rear Fly"
+  },
+  {
+    "id": 643,
+    "name": "Dumbbell Rear Lateral Raise (Support Head)",
+    "muscle": "shoulders",
+    "full": "Dumbbell Rear Lateral Raise (Support Head)"
   },
   {
     "id": 644,
@@ -1488,10 +1476,10 @@
     "full": "Dumbbell Romanian Deadlift"
   },
   {
-    "id": 661,
-    "name": "Dumbbell Seated Bench Extension",
-    "muscle": "upper arms",
-    "full": "Dumbbell Seated Bench Extension"
+    "id": 659,
+    "name": "Dumbbell Seated Alternate Press",
+    "muscle": "shoulders",
+    "full": "Dumbbell Seated Alternate Press"
   },
   {
     "id": 665,
@@ -1704,12 +1692,6 @@
     "full": "Finger Curls"
   },
   {
-    "id": 799,
-    "name": "Flexion Leg Sit Up (Straight Arm)",
-    "muscle": "waist",
-    "full": "Flexion Leg Sit Up (Straight Arm)"
-  },
-  {
     "id": 801,
     "name": "Flutter Kicks",
     "muscle": "upper legs",
@@ -1890,24 +1872,6 @@
     "full": "Kettlebell Goblet Squat"
   },
   {
-    "id": 889,
-    "name": "Kettlebell Hang Clean",
-    "muscle": "upper legs",
-    "full": "Kettlebell Hang Clean"
-  },
-  {
-    "id": 890,
-    "name": "Kettlebell Lunge Pass Through",
-    "muscle": "upper legs",
-    "full": "Kettlebell Lunge Pass Through"
-  },
-  {
-    "id": 896,
-    "name": "Kettlebell One Arm Row",
-    "muscle": "back",
-    "full": "Kettlebell One Arm Row"
-  },
-  {
     "id": 899,
     "name": "Kettlebell Pistol Squat",
     "muscle": "upper legs",
@@ -1956,6 +1920,12 @@
     "full": "Lever Back Extension"
   },
   {
+    "id": 932,
+    "name": "Lever Bent Over Row",
+    "muscle": "back",
+    "full": "Lever Bent Over Row"
+  },
+  {
     "id": 934,
     "name": "Lever Bicep Curl",
     "muscle": "upper arms",
@@ -1996,12 +1966,6 @@
     "name": "Lever High Row",
     "muscle": "back",
     "full": "Lever High Row"
-  },
-  {
-    "id": 947,
-    "name": "Lever Hip Extension V. 2",
-    "muscle": "upper legs",
-    "full": "Lever Hip Extension V. 2"
   },
   {
     "id": 949,
@@ -2092,6 +2056,12 @@
     "name": "Lever Seated Leg Curl",
     "muscle": "upper legs",
     "full": "Lever Seated Leg Curl"
+  },
+  {
+    "id": 984,
+    "name": "Lever Seated Leg Raise Crunch",
+    "muscle": "waist",
+    "full": "Lever Seated Leg Raise Crunch"
   },
   {
     "id": 985,
@@ -2449,9 +2419,9 @@
   },
   {
     "id": 1158,
-    "name": "Sled 45\u0412\u00b0 Leg Press",
+    "name": "Sled 45\u00b0 Leg Press",
     "muscle": "upper legs",
-    "full": "Sled 45\u0412\u00b0 Leg Press"
+    "full": "Sled 45\u00b0 Leg Press"
   },
   {
     "id": 1162,
@@ -2584,12 +2554,6 @@
     "name": "Smith Narrow Row",
     "muscle": "back",
     "full": "Smith Narrow Row"
-  },
-  {
-    "id": 1194,
-    "name": "Smith One Arm Row",
-    "muscle": "back",
-    "full": "Smith One Arm Row"
   },
   {
     "id": 1196,
@@ -2824,6 +2788,12 @@
     "name": "Weighted Hanging Leg-Hip Raise",
     "muscle": "waist",
     "full": "Weighted Hanging Leg-Hip Raise"
+  },
+  {
+    "id": 1291,
+    "name": "Weighted Lunge With Swing",
+    "muscle": "upper legs",
+    "full": "Weighted Lunge With Swing"
   },
   {
     "id": 1292,

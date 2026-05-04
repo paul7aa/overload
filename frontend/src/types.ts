@@ -44,6 +44,7 @@ export type LastSessionEntry = {
   reps: number;
   rpe: number;
   oneRm: number;
+  weight?: number;
 };
 
 export type WorkoutRecord = {

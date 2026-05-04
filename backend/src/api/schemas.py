@@ -105,6 +105,10 @@ class LogRequest(BaseModel):
     equipment_full_gym: int = 0
     equipment_garage_gym: int = 0
 
+class PushTokenRequest(BaseModel):
+    token: str
+
+
 # Maps Pydantic field names -> training DataFrame column names.
 # Needed because pandas column names can contain spaces and special characters
 # that aren't valid Python identifiers.

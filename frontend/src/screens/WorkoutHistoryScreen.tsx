@@ -1,9 +1,11 @@
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography } from '../theme';
+import { Swipeable } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../theme';
 import { WorkoutRecord } from '../types';
 import { HISTORY_KEY } from './WorkoutCompleteScreen';
 
@@ -12,107 +14,6 @@ function formatDuration(seconds: number) {
   const s = seconds % 60;
   return `${m}m ${s}s`;
 }
-
-function daysAgo(n: number): string {
-  return new Date(Date.now() - n * 86400000).toISOString();
-}
-
-const MOCK_RECORDS: WorkoutRecord[] = [
-  {
-    id: 'mock-1',
-    programId: 'mock-program',
-    programName: '12-Week Strength Block',
-    dayNumber: 1,
-    weekNumber: 4,
-    durationSeconds: 3720,
-    completedAt: daysAgo(0),
-    exercises: [
-      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
-        { weight: 90, reps: 5, rpe: 8 }, { weight: 90, reps: 5, rpe: 8 }, { weight: 90, reps: 4, rpe: 9 },
-      ]},
-      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
-        { weight: 120, reps: 5, rpe: 7 }, { weight: 120, reps: 5, rpe: 8 }, { weight: 120, reps: 5, rpe: 8 },
-      ]},
-      { name: 'Pull-Up', muscle: 'back', sets: [
-        { weight: 0, reps: 8, rpe: 8 }, { weight: 0, reps: 7, rpe: 9 }, { weight: 0, reps: 6, rpe: 9 },
-      ]},
-    ],
-  },
-  {
-    id: 'mock-2',
-    programId: 'mock-program',
-    programName: '12-Week Strength Block',
-    dayNumber: 2,
-    weekNumber: 4,
-    durationSeconds: 2940,
-    completedAt: daysAgo(1),
-    exercises: [
-      { name: 'Barbell Overhead Press', muscle: 'shoulders', sets: [
-        { weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 4, rpe: 9 },
-      ]},
-      { name: 'Romanian Deadlift', muscle: 'hamstrings', sets: [
-        { weight: 100, reps: 8, rpe: 7 }, { weight: 100, reps: 8, rpe: 8 }, { weight: 100, reps: 7, rpe: 8 },
-      ]},
-      { name: 'Dumbbell Lateral Raise', muscle: 'shoulders', sets: [
-        { weight: 14, reps: 12, rpe: 7 }, { weight: 14, reps: 12, rpe: 8 }, { weight: 14, reps: 10, rpe: 9 },
-      ]},
-    ],
-  },
-  {
-    id: 'mock-3',
-    programId: 'mock-program',
-    programName: '12-Week Strength Block',
-    dayNumber: 1,
-    weekNumber: 3,
-    durationSeconds: 3480,
-    completedAt: daysAgo(3),
-    exercises: [
-      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
-        { weight: 87.5, reps: 5, rpe: 7 }, { weight: 87.5, reps: 5, rpe: 8 }, { weight: 87.5, reps: 5, rpe: 8 },
-      ]},
-      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
-        { weight: 115, reps: 5, rpe: 7 }, { weight: 115, reps: 5, rpe: 7 }, { weight: 115, reps: 5, rpe: 8 },
-      ]},
-      { name: 'Pull-Up', muscle: 'back', sets: [
-        { weight: 0, reps: 7, rpe: 8 }, { weight: 0, reps: 7, rpe: 8 }, { weight: 0, reps: 6, rpe: 9 },
-      ]},
-    ],
-  },
-  {
-    id: 'mock-4',
-    programId: 'mock-program',
-    programName: '12-Week Strength Block',
-    dayNumber: 2,
-    weekNumber: 3,
-    durationSeconds: 2700,
-    completedAt: daysAgo(5),
-    exercises: [
-      { name: 'Barbell Overhead Press', muscle: 'shoulders', sets: [
-        { weight: 57.5, reps: 5, rpe: 7 }, { weight: 57.5, reps: 5, rpe: 8 }, { weight: 57.5, reps: 5, rpe: 8 },
-      ]},
-      { name: 'Romanian Deadlift', muscle: 'hamstrings', sets: [
-        { weight: 97.5, reps: 8, rpe: 7 }, { weight: 97.5, reps: 8, rpe: 7 }, { weight: 97.5, reps: 8, rpe: 8 },
-      ]},
-    ],
-  },
-  {
-    id: 'mock-5',
-    programId: 'mock-program',
-    programName: '12-Week Strength Block',
-    dayNumber: 1,
-    weekNumber: 2,
-    durationSeconds: 3300,
-    completedAt: daysAgo(18),
-    exercises: [
-      { name: 'Barbell Bench Press', muscle: 'chest', sets: [
-        { weight: 85, reps: 5, rpe: 7 }, { weight: 85, reps: 5, rpe: 7 }, { weight: 85, reps: 5, rpe: 8 },
-      ]},
-      { name: 'Barbell Back Squat', muscle: 'quadriceps', sets: [
-        { weight: 110, reps: 5, rpe: 7 }, { weight: 110, reps: 5, rpe: 7 }, { weight: 110, reps: 5, rpe: 8 },
-      ]},
-    ],
-  },
-];
 
 function groupByDate(records: WorkoutRecord[]): { label: string; items: WorkoutRecord[] }[] {
   const now = new Date();
@@ -151,37 +52,40 @@ function WorkoutCard({ record }: { record: WorkoutRecord }) {
   const time = new Date(record.completedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <Pressable style={styles.card} onPress={() => setExpanded(e => !e)}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardLeft}>
-          <Text style={styles.cardTitle}>{record.programName} · Day {record.dayNumber}</Text>
-          <Text style={styles.cardMeta}>Week {record.weekNumber} · {time} · {formatDuration(record.durationSeconds)}</Text>
+    <Pressable
+      className="bg-surface rounded-xl border border-border p-3.5 gap-1.5"
+      onPress={() => setExpanded(e => !e)}
+    >
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1 gap-0.5">
+          <Text className="text-base font-outfit text-primary font-bold">{record.programName} · Day {record.dayNumber}</Text>
+          <Text className="text-xs font-outfit text-secondary">Week {record.weekNumber} · {time} · {formatDuration(record.durationSeconds)}</Text>
         </View>
-        <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+        <Text className="text-11 font-outfit text-secondary ml-2">{expanded ? '▲' : '▼'}</Text>
       </View>
 
-      <View style={styles.cardStats}>
-        <Text style={styles.cardStat}>{record.exercises.length} exercises</Text>
-        <Text style={styles.cardStatSep}>·</Text>
-        <Text style={styles.cardStat}>{totalSets} sets</Text>
-        <Text style={styles.cardStatSep}>·</Text>
-        <Text style={styles.cardStat}>{Math.round(totalVolume).toLocaleString()} kg volume</Text>
+      <View className="flex-row items-center gap-1.5">
+        <Text className="text-xs font-outfit text-secondary">{record.exercises.length} exercises</Text>
+        <Text className="text-xs font-outfit text-border">·</Text>
+        <Text className="text-xs font-outfit text-secondary">{totalSets} sets</Text>
+        <Text className="text-xs font-outfit text-border">·</Text>
+        <Text className="text-xs font-outfit text-secondary">{Math.round(totalVolume).toLocaleString()} kg volume</Text>
       </View>
 
       {expanded && (
-        <View style={styles.exerciseList}>
+        <View className="mt-2 gap-2.5 border-t border-border pt-2.5">
           {record.exercises.map((ex, i) => (
-            <View key={i} style={styles.exerciseRow}>
-              <View style={styles.exerciseRowHeader}>
-                <Text style={styles.exerciseName}>{ex.name}</Text>
-                <Text style={styles.exerciseMuscle}>{ex.muscle}</Text>
+            <View key={i} className="gap-1">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-13 font-outfit text-primary font-semibold flex-1">{ex.name}</Text>
+                <Text className="text-11 font-outfit text-secondary">{ex.muscle}</Text>
               </View>
               {ex.sets.map((set, si) => (
-                <View key={si} style={styles.setRow}>
-                  <Text style={styles.setNum}>Set {si + 1}</Text>
-                  <Text style={styles.setDetail}>{set.weight > 0 ? `${set.weight} kg` : 'BW'}</Text>
-                  <Text style={styles.setDetail}>{set.reps} reps</Text>
-                  <Text style={styles.setDetail}>RPE {set.rpe}</Text>
+                <View key={si} className="flex-row items-center pl-2 gap-2">
+                  <Text className="text-xs font-outfit text-secondary w-11">Set {si + 1}</Text>
+                  <Text className="text-xs font-outfit text-secondary flex-1 text-center">{set.weight > 0 ? `${set.weight} kg` : 'BW'}</Text>
+                  <Text className="text-xs font-outfit text-secondary flex-1 text-center">{set.reps} reps</Text>
+                  <Text className="text-xs font-outfit text-secondary flex-1 text-center">RPE {set.rpe}</Text>
                 </View>
               ))}
             </View>
@@ -204,47 +108,35 @@ function LifetimeStats({ records }: { records: WorkoutRecord[] }) {
   const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
   return (
-    <View style={statsStyles.card}>
-      <Text style={statsStyles.title}>Lifetime</Text>
-      <View style={statsStyles.grid}>
-        <View style={statsStyles.cell}>
-          <Text style={statsStyles.value}>{totalWorkouts}</Text>
-          <Text style={statsStyles.label}>Workouts</Text>
+    <View className="mx-4 mb-0 rounded-[14px] bg-navy border border-accent/[19%] p-5 gap-4">
+      <Text className="text-11 font-outfit text-accent tracking-widest uppercase">Lifetime</Text>
+      <View className="flex-row flex-wrap">
+        <View className="w-1/2 py-2.5 px-1 gap-1">
+          <Text className="text-[28px] font-outfit-bold text-accent">{totalWorkouts}</Text>
+          <Text className="text-xs font-outfit text-secondary">Workouts</Text>
         </View>
-        <View style={statsStyles.cell}>
-          <Text style={statsStyles.value}>{fmt(totalSets)}</Text>
-          <Text style={statsStyles.label}>Sets</Text>
+        <View className="w-1/2 py-2.5 px-1 gap-1">
+          <Text className="text-[28px] font-outfit-bold text-accent">{fmt(totalSets)}</Text>
+          <Text className="text-xs font-outfit text-secondary">Sets</Text>
         </View>
-        <View style={statsStyles.cell}>
-          <Text style={statsStyles.value}>{fmt(Math.round(totalVolume))}</Text>
-          <Text style={statsStyles.label}>kg Volume</Text>
+        <View className="w-1/2 py-2.5 px-1 gap-1">
+          <Text className="text-[28px] font-outfit-bold text-accent">{fmt(Math.round(totalVolume))}</Text>
+          <Text className="text-xs font-outfit text-secondary">kg Volume</Text>
         </View>
-        <View style={statsStyles.cell}>
-          <Text style={statsStyles.value}>{fmt(totalMinutes)}</Text>
-          <Text style={statsStyles.label}>Minutes</Text>
+        <View className="w-1/2 py-2.5 px-1 gap-1">
+          <Text className="text-[28px] font-outfit-bold text-accent">{fmt(totalMinutes)}</Text>
+          <Text className="text-xs font-outfit text-secondary">Minutes</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const statsStyles = StyleSheet.create({
-  card: {
-    margin: 16, marginBottom: 0, borderRadius: 14,
-    backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: colors.accent + '30',
-    padding: 20, gap: 16,
-  },
-  title: { ...typography.caption, fontSize: 11, letterSpacing: 1.5, color: colors.accent, textTransform: 'uppercase' as const },
-  grid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 0 },
-  cell: { width: '50%' as const, paddingVertical: 10, paddingHorizontal: 4, gap: 4 },
-  value: { fontSize: 28, fontFamily: 'Outfit_700Bold', color: colors.accent },
-  label: { ...typography.caption, fontSize: 12 },
-});
-
 export default function WorkoutHistoryScreen() {
   const { bottom } = useSafeAreaInsets();
   const [records, setRecords] = useState<WorkoutRecord[]>([]);
   const [groups, setGroups] = useState<{ label: string; items: WorkoutRecord[] }[]>([]);
+  const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const load = useCallback(() => {
     AsyncStorage.getItem(HISTORY_KEY).then(raw => {
@@ -256,58 +148,62 @@ export default function WorkoutHistoryScreen() {
 
   useFocusEffect(load);
 
+  const deleteRecord = useCallback((id: string) => {
+    setRecords(prev => {
+      const next = prev.filter(r => r.id !== id);
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      setGroups(groupByDate(next));
+      return next;
+    });
+  }, []);
+
   if (groups.length === 0) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>No workouts yet.</Text>
-        <Text style={typography.caption}>Complete a workout to see your history here.</Text>
+      <View className="flex-1 items-center justify-center gap-3">
+        <Text className="text-base font-outfit text-primary font-semibold">No workouts yet.</Text>
+        <Text className="text-13 font-outfit text-secondary">Complete a workout to see your history here.</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]}>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: bottom + 16 }}>
       <LifetimeStats records={records} />
       {groups.map(({ label, items }) => (
         <View key={label}>
-          <Text style={styles.groupLabel}>{label}</Text>
-          {items.map(r => <WorkoutCard key={r.id} record={r} />)}
+          <Text className="text-13 font-outfit text-secondary font-semibold mt-3 mb-1.5 ml-1">{label}</Text>
+          <View className="gap-2">
+            {items.map(r => (
+              <Swipeable
+                key={r.id}
+                ref={ref => { if (ref) swipeRefs.current.set(r.id, ref); else swipeRefs.current.delete(r.id); }}
+                friction={2}
+                rightThreshold={40}
+                renderRightActions={() => (
+                  <Pressable
+                    className="w-16 justify-center items-center ml-2"
+                    onPress={() => {
+                      swipeRefs.current.get(r.id)?.close();
+                      Alert.alert(
+                        'Delete workout?',
+                        'This will permanently remove this session from your history.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => deleteRecord(r.id) },
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="trash" size={20} color={colors.danger} />
+                  </Pressable>
+                )}
+              >
+                <WorkoutCard record={r} />
+              </Swipeable>
+            ))}
+          </View>
         </View>
       ))}
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { padding: 16, gap: 8 },
-
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyText: { ...typography.body, fontWeight: '600' as const },
-  seedBtn: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  seedBtnText: { ...typography.caption, color: colors.secondary },
-
-  groupLabel: { ...typography.caption, fontWeight: '600' as const, marginTop: 12, marginBottom: 6, marginLeft: 4 },
-
-  card: {
-    backgroundColor: colors.surface, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.border, padding: 14, gap: 6,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  cardLeft: { flex: 1, gap: 2 },
-  cardTitle: { ...typography.body, fontWeight: '700' as const },
-  cardMeta: { ...typography.caption, fontSize: 12 },
-  chevron: { ...typography.caption, fontSize: 11, marginLeft: 8 },
-
-  cardStats: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardStat: { ...typography.caption, fontSize: 12, color: colors.secondary },
-  cardStatSep: { ...typography.caption, fontSize: 12, color: colors.border },
-
-  exerciseList: { marginTop: 8, gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
-  exerciseRow: { gap: 4 },
-  exerciseRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exerciseName: { ...typography.caption, fontWeight: '600' as const, color: colors.primary, flex: 1 },
-  exerciseMuscle: { ...typography.caption, fontSize: 11 },
-  setRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 8, gap: 8 },
-  setNum: { ...typography.caption, width: 44, fontSize: 12 },
-  setDetail: { ...typography.caption, flex: 1, textAlign: 'center', fontSize: 12 },
-});

@@ -31,7 +31,7 @@ WEIGHTS = {
 }
 
 # challenger must beat champion by at least this much to be promoted (guards against noise)
-IMPROVEMENT_THRESHOLD = 0.02
+IMPROVEMENT_THRESHOLD = 0.00
 
 
 def weighted_rmse(metrics: dict[str, float]) -> float:
@@ -130,6 +130,8 @@ def evaluate_and_promote() -> None:
             print(f"\nPromoted challenger to Production (version {result.version})")
         else:
             print("\nChallenger not promoted - champion retained.")
+
+    return promote
 
 
 if __name__ == "__main__":

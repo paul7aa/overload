@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, KeyboardAvoidingView, Pressable, StyleSheet,
+  Animated, KeyboardAvoidingView, Pressable,
   Text, TextInput, View, TouchableOpacity, ScrollView
 } from 'react-native';
 import DragList, { DragListRenderItemInfo } from 'react-native-draglist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography } from '../theme';
+import { colors } from '../theme';
 import { Exercise, ProgramExercise, Program, WorkoutDay, RootStackParamList } from '../types';
 import EXERCISES from '../data/exercises.json';
 import React from 'react';
@@ -57,11 +57,12 @@ function AnimatedDay({ onRemove, children}: { onRemove: () => void; children: (r
     Animated.timing(anim, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => onRemove());
   };
   return (
-    <Animated.View 
-    style={{
-      opacity: anim,
-      transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
-    }}>
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+      }}
+    >
       {children(animateRemove)}
     </Animated.View>
   );
@@ -79,20 +80,23 @@ const ExerciseItem = React.memo(({
   ex, dayIndex, isActive, onDragStart, removeExercise
 }: ExerciseItemProps) => {
   return (
-    <View style={[styles.exRow, isActive && styles.exRowDragging]} collapsable={false}>
+    <View
+      className={`flex-row items-center py-2 border-t border-border gap-2 ${isActive ? 'bg-surface rounded-lg border-t-0' : ''}`}
+      collapsable={false}
+    >
       <Pressable onPress={() => removeExercise(dayIndex, ex.id)} hitSlop={8}>
-        <Text style={styles.exRemove}>×</Text>
+        <Text className="text-secondary text-xl pl-1">×</Text>
       </Pressable>
-      <View style={styles.exInfo}>
-        <Text style={styles.exName}>{ex.name}</Text>
-        <Text style={styles.exMeta}>{ex.sets} × {ex.reps}  ·  {ex.muscle}</Text>
+      <View className="flex-1">
+        <Text className="text-base font-outfit text-primary">{ex.name}</Text>
+        <Text className="text-13 font-outfit text-secondary mt-0.5">{ex.sets} × {ex.reps}  ·  {ex.muscle}</Text>
       </View>
-      <TouchableOpacity 
-        onPressIn={onDragStart} // Only trigger the start, let the library handle the drop naturally
-        hitSlop={8} 
-        style={styles.dragHandle}
+      <TouchableOpacity
+        onPressIn={onDragStart}
+        hitSlop={8}
+        className="px-1"
       >
-        <Text style={styles.dragHandleIcon}>≡</Text>
+        <Text className="text-secondary text-xl" style={{ letterSpacing: -1 }}>≡</Text>
       </TouchableOpacity>
     </View>
   );
@@ -132,8 +136,8 @@ const DayExerciseList = React.memo(({
       data={day.exercises}
       keyExtractor={keyExtractor}
       onReordered={onReordered}
-      onDragBegin={onDragBegin} // Library tells us when the drag starts
-      onDragEnd={onDragEnd}     // Library tells us when the drag fully finishes
+      onDragBegin={onDragBegin}
+      onDragEnd={onDragEnd}
       scrollEnabled={false}
       renderItem={renderItem}
     />
@@ -156,19 +160,16 @@ export default function AddProgramModal({ navigation, route }: Props) {
   const [timePerWorkout, setTimePerWorkout] = useState(String(editing?.timePerWorkout ?? 60));
   const [days, setDays] = useState<WorkoutDay[]>(editing?.days ?? [{ dayNumber: 1, exercises: [] }]);
 
-// Drag state for standard ScrollView wrapper
   const [isDragging, setIsDragging] = useState(false);
 
-const handleDragBegin = useCallback(() => setIsDragging(true), []);
-  
+  const handleDragBegin = useCallback(() => setIsDragging(true), []);
+
   const handleDragEnd = useCallback(() => {
-    // Give the layout engine 50ms to process the drop and array reorder 
-    // before re-enabling the parent scroll view.
     setTimeout(() => {
       setIsDragging(false);
     }, 50);
   }, []);
-  // exercise picker state
+
   const [addingToDay, setAddingToDay] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [pendingEx, setPendingEx] = useState<Exercise | null>(null);
@@ -285,168 +286,210 @@ const handleDragBegin = useCallback(() => setIsDragging(true), []);
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding">
-      <View style={styles.progressRow}>
+    <KeyboardAvoidingView className="flex-1 bg-background" behavior="padding">
+      <View className="flex-row gap-1.5 px-5 pt-4">
         {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-          <View key={i} style={[styles.pip, i < step && styles.pipDone]} />
+          <View key={i} className={`flex-1 h-[3px] rounded-sm ${i < step ? 'bg-accent' : 'bg-border'}`} />
         ))}
       </View>
 
-      <ScrollView 
-        ref={scrollRef} 
-        contentContainerStyle={styles.body} 
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ padding: 20, gap: 8 }}
         keyboardShouldPersistTaps="handled"
-        scrollEnabled={!isDragging} // Disable parent scrolling while dragging
+        scrollEnabled={!isDragging}
       >
-
         {step === 1 && <>
-          <Text style={styles.heading}>Name your program</Text>
+          <Text className="text-base font-outfit text-primary font-semibold mb-3">Name your program</Text>
           <TextInput
-            style={styles.input}
+            className="bg-surface border border-border rounded-lg p-3 text-accent text-15"
             placeholder="e.g. 12-Week Strength Block"
             placeholderTextColor={colors.secondary}
             value={name}
             onChangeText={setName}
           />
-          <Text style={[styles.heading, { marginTop: 28 }]}>Level</Text>
+          <Text className="text-base font-outfit text-primary font-semibold mb-3 mt-7">Level</Text>
           <OptionRow options={LEVELS} selected={level} onSelect={v => toggleMulti(v, level, setLevel)} />
         </>}
 
         {step === 2 && <>
-          <Text style={styles.heading}>Goal</Text>
+          <Text className="text-base font-outfit text-primary font-semibold mb-3">Goal</Text>
           <OptionGrid options={GOALS} selected={goal} onSelect={v => toggleMulti(v, goal, setGoal)} />
         </>}
 
         {step === 3 && <>
-          <Text style={styles.heading}>Equipment</Text>
+          <Text className="text-base font-outfit text-primary font-semibold mb-3">Equipment</Text>
           <OptionGrid options={EQUIPMENT} selected={equipment} onSelect={setEquipment} />
         </>}
 
         {step === 4 && <>
-          <Text style={styles.heading}>Program length (weeks)</Text>
-          <TextInput style={styles.input} keyboardType="numeric" value={lengthWeeks} onChangeText={setLengthWeeks} placeholderTextColor={colors.secondary} />
-          <Text style={[styles.heading, { marginTop: 28 }]}>Time per workout (min)</Text>
-          <TextInput style={styles.input} keyboardType="numeric" value={timePerWorkout} onChangeText={setTimePerWorkout} placeholderTextColor={colors.secondary} />
+          <Text className="text-base font-outfit text-primary font-semibold mb-3">Program length (weeks)</Text>
+          <TextInput
+            className="bg-surface border border-border rounded-lg p-3 text-accent text-15"
+            keyboardType="numeric"
+            value={lengthWeeks}
+            onChangeText={setLengthWeeks}
+            placeholderTextColor={colors.secondary}
+          />
+          <Text className="text-base font-outfit text-primary font-semibold mb-3 mt-7">Time per workout (min)</Text>
+          <TextInput
+            className="bg-surface border border-border rounded-lg p-3 text-accent text-15"
+            keyboardType="numeric"
+            value={timePerWorkout}
+            onChangeText={setTimePerWorkout}
+            placeholderTextColor={colors.secondary}
+          />
         </>}
 
-        {step === 5 && <> 
+        {step === 5 && <>
           {days.map((day, di) => (
             <AnimatedDay key={`day-block-${day.dayNumber}`} onRemove={() => removeDay(di)}>
               {(animateRemove) => (
-            <View style={styles.dayBlock}>
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayTitle}>Day {day.dayNumber}</Text>
-                <View style={styles.dayActions}>
-                  {di > 0 && (
-                    <Pressable onPress={() => swapDays(di, di - 1)} hitSlop={8}>
-                      <Text style={styles.dayAction}>▲</Text>
-                    </Pressable>
-                  )}
-                  {di < days.length - 1 && (
-                    <Pressable onPress={() => swapDays(di, di + 1)} hitSlop={8}>
-                      <Text style={styles.dayAction}>▼</Text>
-                    </Pressable>
-                  )}
-                  {days.length < MAX_DAYS && (
-                    <Pressable onPress={() => duplicateDay(di)} hitSlop={8}>
-                      <Text style={styles.dayAction}>⧉</Text>
-                    </Pressable>
-                  )}
-                  {days.length > 1 && (
-                    <Pressable onPress={animateRemove} hitSlop={8}>
-                      <Text style={styles.removeDay}>Remove</Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-
-              <DayExerciseList
-                day={day}
-                dayIndex={di}
-                reorderExercise={reorderExercise}
-                removeExercise={removeExercise}
-                onDragBegin={handleDragBegin}
-                onDragEnd={handleDragEnd}
-              />
-
-              {addingToDay === di ? (
-                <View style={styles.picker}>
-                  {pendingEx === null ? (
-                    <>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Search exercises..."
-                        placeholderTextColor={colors.secondary}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoFocus
-                      />
-                      {filtered.map(ex => (
-                        <Pressable key={ex.id} style={styles.searchRow} onPress={() => setPendingEx(ex)}>
-                          <Text style={styles.exName}>{ex.name}</Text>
-                          <Text style={styles.exMeta}>{ex.muscle}</Text>
+                <View className="bg-surface rounded-[10px] border border-border p-3.5 gap-2">
+                  <View className="flex-row justify-between items-center mb-1">
+                    <Text className="text-base font-outfit text-primary font-bold">Day {day.dayNumber}</Text>
+                    <View className="flex-row items-center gap-3.5">
+                      {di > 0 && (
+                        <Pressable onPress={() => swapDays(di, di - 1)} hitSlop={8}>
+                          <Text className="text-primary text-base">▲</Text>
                         </Pressable>
-                      ))}
-                      <Pressable onPress={closePicker} style={styles.cancelBtn}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </Pressable>
-                    </>
-                  ) : (
-                    <View style={styles.setsRepsRow}>
-                      <Text style={styles.pendingName}>{pendingEx.name}</Text>
-                      <View style={styles.setsRepsInputs}>
-                        <View style={styles.numericField}>
-                          <Text style={styles.numericLabel}>Sets</Text>
-                          <TextInput style={styles.numericInput} keyboardType="numeric" value={pendingSets} onChangeText={setPendingSets} />
-                        </View>
-                        <Text style={styles.times}>×</Text>
-                        <View style={styles.numericField}>
-                          <Text style={styles.numericLabel}>Reps</Text>
-                          <TextInput style={styles.numericInput} keyboardType="numeric" value={pendingReps} onChangeText={setPendingReps} />
-                        </View>
-                      </View>
-                      <View style={styles.confirmRow}>
-                        <Pressable style={styles.cancelBtn} onPress={() => setPendingEx(null)}>
-                          <Text style={styles.cancelText}>Back</Text>
+                      )}
+                      {di < days.length - 1 && (
+                        <Pressable onPress={() => swapDays(di, di + 1)} hitSlop={8}>
+                          <Text className="text-primary text-base">▼</Text>
                         </Pressable>
-                        <Pressable style={styles.confirmBtn} onPress={confirmAdd}>
-                          <Text style={styles.confirmText}>Add</Text>
+                      )}
+                      {days.length < MAX_DAYS && (
+                        <Pressable onPress={() => duplicateDay(di)} hitSlop={8}>
+                          <Text className="text-primary text-base">⧉</Text>
                         </Pressable>
-                      </View>
+                      )}
+                      {days.length > 1 && (
+                        <Pressable onPress={animateRemove} hitSlop={8}>
+                          <Text className="text-13 font-outfit text-secondary">Remove</Text>
+                        </Pressable>
+                      )}
                     </View>
+                  </View>
+
+                  <DayExerciseList
+                    day={day}
+                    dayIndex={di}
+                    reorderExercise={reorderExercise}
+                    removeExercise={removeExercise}
+                    onDragBegin={handleDragBegin}
+                    onDragEnd={handleDragEnd}
+                  />
+
+                  {addingToDay === di ? (
+                    <View className="gap-2 mt-1">
+                      {pendingEx === null ? (
+                        <>
+                          <TextInput
+                            className="bg-surface border border-border rounded-lg p-3 text-accent text-15"
+                            placeholder="Search exercises..."
+                            placeholderTextColor={colors.secondary}
+                            value={query}
+                            onChangeText={setQuery}
+                            autoFocus
+                          />
+                          {filtered.map(ex => (
+                            <Pressable
+                              key={ex.id}
+                              className="py-3 border-b border-border"
+                              onPress={() => setPendingEx(ex)}
+                            >
+                              <Text className="text-base font-outfit text-primary">{ex.name}</Text>
+                              <Text className="text-13 font-outfit text-secondary">{ex.muscle}</Text>
+                            </Pressable>
+                          ))}
+                          <Pressable
+                            className="flex-1 p-3 rounded-lg border border-border items-center"
+                            onPress={closePicker}
+                          >
+                            <Text className="text-secondary text-sm">Cancel</Text>
+                          </Pressable>
+                        </>
+                      ) : (
+                        <View className="gap-3">
+                          <Text className="text-base font-outfit text-primary font-semibold mb-3">{pendingEx.name}</Text>
+                          <View className="flex-row items-center gap-3">
+                            <View className="flex-1 gap-1.5">
+                              <Text className="text-13 font-outfit text-secondary">Sets</Text>
+                              <TextInput
+                                className="bg-background border border-border rounded-lg p-3 text-accent text-lg text-center"
+                                keyboardType="numeric"
+                                value={pendingSets}
+                                onChangeText={setPendingSets}
+                              />
+                            </View>
+                            <Text className="text-secondary text-lg">×</Text>
+                            <View className="flex-1 gap-1.5">
+                              <Text className="text-13 font-outfit text-secondary">Reps</Text>
+                              <TextInput
+                                className="bg-background border border-border rounded-lg p-3 text-accent text-lg text-center"
+                                keyboardType="numeric"
+                                value={pendingReps}
+                                onChangeText={setPendingReps}
+                              />
+                            </View>
+                          </View>
+                          <View className="flex-row gap-2">
+                            <Pressable
+                              className="flex-1 p-3 rounded-lg border border-border items-center"
+                              onPress={() => setPendingEx(null)}
+                            >
+                              <Text className="text-secondary text-sm">Back</Text>
+                            </Pressable>
+                            <Pressable
+                              className="flex-[2] p-3 rounded-lg bg-accent items-center"
+                              onPress={confirmAdd}
+                            >
+                              <Text className="text-background text-sm font-bold">Add</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Pressable
+                      className="py-2.5 items-center border border-secondary rounded-lg mt-1"
+                      onPress={() => openPicker(di)}
+                    >
+                      <Text className="text-primary text-sm">+ Add Exercise</Text>
+                    </Pressable>
                   )}
                 </View>
-              ) : (
-                <Pressable style={styles.addExBtn} onPress={() => openPicker(di)}>
-                  <Text style={styles.addExText}>+ Add Exercise</Text>
-                </Pressable>
-              )}
-            </View>
               )}
             </AnimatedDay>
           ))}
 
           {days.length < MAX_DAYS && (
-            <Pressable style={styles.addDayBtn} onPress={addDay}>
-              <Text style={styles.addDayText}>+ Add Day</Text>
+            <Pressable
+              className="p-3.5 rounded-[10px] border border-secondary items-center"
+              onPress={addDay}
+            >
+              <Text className="text-primary text-sm">+ Add Day</Text>
             </Pressable>
           )}
         </>}
-
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: bottom || 16 }]}>
+      <View className="flex-row gap-2.5 p-4" style={{ paddingBottom: bottom || 16 }}>
         {step > 1 && (
-          <Pressable style={styles.backBtn} onPress={() => setStep(s => s - 1)}>
-            <Text style={styles.backBtnText}>Back</Text>
+          <Pressable
+            className="flex-1 p-4 rounded-[10px] border border-border items-center"
+            onPress={() => setStep(s => s - 1)}
+          >
+            <Text className="text-primary text-15">Back</Text>
           </Pressable>
         )}
         <Pressable
-          style={[styles.nextBtn, !canAdvance() && styles.nextBtnDisabled]}
+          className={`flex-[2] p-4 rounded-[10px] items-center ${!canAdvance() ? 'bg-surface' : 'bg-accent'}`}
           disabled={!canAdvance()}
           onPress={() => step < TOTAL_STEPS ? setStep(s => s + 1) : save()}
         >
-          <Text style={styles.nextBtnText}>{step < TOTAL_STEPS ? 'Next' : 'Save'}</Text>
+          <Text className="text-background text-15 font-bold">{step < TOTAL_STEPS ? 'Next' : 'Save'}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -455,10 +498,14 @@ const handleDragBegin = useCallback(() => setIsDragging(true), []);
 
 function OptionRow({ options, selected, onSelect }: { options: string[]; selected: string[]; onSelect: (o: string) => void }) {
   return (
-    <View style={styles.optionRow}>
+    <View className="flex-row flex-wrap gap-2">
       {options.map(o => (
-        <Pressable key={o} style={[styles.pill, selected.includes(o) && styles.pillActive]} onPress={() => onSelect(o)}>
-          <Text style={[styles.pillText, selected.includes(o) && styles.pillTextActive]}>{o}</Text>
+        <Pressable
+          key={o}
+          className={`py-2 px-3.5 rounded-[20px] border ${selected.includes(o) ? 'bg-accent border-accent' : 'border-border'}`}
+          onPress={() => onSelect(o)}
+        >
+          <Text className={`text-sm ${selected.includes(o) ? 'text-background font-semibold' : 'text-primary'}`}>{o}</Text>
         </Pressable>
       ))}
     </View>
@@ -468,86 +515,16 @@ function OptionRow({ options, selected, onSelect }: { options: string[]; selecte
 function OptionGrid({ options, selected, onSelect }: { options: string[]; selected: string | string[] | null; onSelect: (o: string) => void }) {
   const active = (o: string) => Array.isArray(selected) ? selected.includes(o) : o === selected;
   return (
-    <View style={styles.grid}>
+    <View className="flex-row flex-wrap gap-2">
       {options.map(o => (
-        <Pressable key={o} style={[styles.gridCard, active(o) && styles.gridCardActive]} onPress={() => onSelect(o)}>
-          <Text style={[styles.gridText, active(o) && styles.gridTextActive]}>{o}</Text>
+        <Pressable
+          key={o}
+          className={`py-3 px-3.5 rounded-lg border flex-1 min-w-[45%] ${active(o) ? 'bg-accent border-accent' : 'border-border'}`}
+          onPress={() => onSelect(o)}
+        >
+          <Text className={`text-sm ${active(o) ? 'text-background font-semibold' : 'text-primary'}`}>{o}</Text>
         </Pressable>
       ))}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  progressRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 20, paddingTop: 16 },
-  pip: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.border },
-  pipDone: { backgroundColor: colors.accent },
-  body: { padding: 20, gap: 8 },
-  heading: { ...typography.body, fontWeight: '600', marginBottom: 12 },
-  input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, color: colors.accent, fontSize: 15 },
-
-  // option row (pills)
-  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
-  pillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  pillText: { color: colors.primary, fontSize: 14 },
-  pillTextActive: { color: colors.background, fontWeight: '600' },
-
-  // option grid (cards)
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  gridCard: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.border, minWidth: '45%', flex: 1 },
-  gridCardActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  gridText: { color: colors.primary, fontSize: 14 },
-  gridTextActive: { color: colors.background, fontWeight: '600' },
-
-  // day blocks
-  dayBlock: { backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
-  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  dayTitle: { ...typography.body, fontWeight: '700' },
-  dayActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  dayAction: { color: colors.primary, fontSize: 16 },
-  removeDay: { ...typography.caption, color: colors.secondary },
-
-  // exercise rows
-  exRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, gap: 8 },
-  exRowDragging: { backgroundColor: colors.surface, borderRadius: 8, borderTopWidth: 0 },
-  dragHandle: { paddingHorizontal: 4 },
-  dragHandleIcon: { color: colors.secondary, fontSize: 20, letterSpacing: -1 },
-  exInfo: { flex: 1 },
-  exName: { ...typography.body },
-  exMeta: { ...typography.caption, marginTop: 2 },
-  exRemove: { color: colors.secondary, fontSize: 20, paddingLeft: 4 },
-
-  // add exercise button
-  addExBtn: { paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.secondary, borderRadius: 8, marginTop: 4 },
-  addExText: { color: colors.primary, fontSize: 14 },
-
-  // picker
-  picker: { gap: 8, marginTop: 4 },
-  searchRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  pendingName: { ...typography.body, fontWeight: '600', marginBottom: 12 },
-  setsRepsRow: { gap: 12 },
-  setsRepsInputs: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  numericField: { flex: 1, gap: 6 },
-  numericLabel: { ...typography.caption },
-  numericInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, color: colors.accent, fontSize: 18, textAlign: 'center' },
-  times: { color: colors.secondary, fontSize: 18 },
-  confirmRow: { flexDirection: 'row', gap: 8 },
-  cancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  cancelText: { color: colors.secondary, fontSize: 14 },
-  confirmBtn: { flex: 2, padding: 12, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center' },
-  confirmText: { color: colors.background, fontSize: 14, fontWeight: '700' },
-
-  // add day
-  addDayBtn: { padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.secondary, alignItems: 'center' },
-  addDayText: { color: colors.primary, fontSize: 14 },
-
-  // footer
-  footer: { flexDirection: 'row', gap: 10, padding: 16 },
-  backBtn: { flex: 1, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  backBtnText: { color: colors.primary, fontSize: 15 },
-  nextBtn: { flex: 2, padding: 16, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center' },
-  nextBtnDisabled: { backgroundColor: colors.surface },
-  nextBtnText: { color: colors.background, fontSize: 15, fontWeight: '700' },
-});

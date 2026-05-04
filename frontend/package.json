@@ -17,9 +17,13 @@
     "@react-navigation/native-stack": "^7.14.12",
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.33",
+    "expo-device": "~8.0.10",
     "expo-font": "~14.0.11",
+    "expo-notifications": "~0.32.17",
     "expo-status-bar": "~3.0.9",
+    "expo-system-ui": "^55.0.16",
     "fuse.js": "^7.3.0",
+    "nativewind": "^4.2.3",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-draglist": "^3.10.0",
@@ -27,7 +31,8 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
-    "react-native-worklets": "0.5.1"
+    "react-native-worklets": "0.5.1",
+    "tailwindcss": "^3.4.19"
   },
   "private": true,
   "devDependencies": {

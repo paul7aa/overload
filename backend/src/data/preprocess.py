@@ -202,6 +202,7 @@ def preprocess():
         exercise_map_dict = json.load(open("data/exercise_map.json"))
         user_logs = process_user_logs(raw_logs, exercise_map_dict)
         if not user_logs.empty:
+            user_logs = user_logs.reindex(columns=train.columns, fill_value=0)
             train = pd.concat([train, user_logs], axis=0, ignore_index=True)
             logger.info("Appended %d user log rows to train set", len(user_logs))
 

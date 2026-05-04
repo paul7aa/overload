@@ -1,31 +1,52 @@
+import gc
 import json
 import os
 from contextlib import asynccontextmanager
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query, Security
+import requests as _requests
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Security
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func
 
 from src.models.utils import load_model, load_exercise_map, MODEL_NAME, ALIAS_PROD
-from src.api.schemas import PredictRequest, PredictResponse, LogRequest, _FIELD_TO_COL, _FEATURE_COLS
-from src.api.db import SessionLocal, WorkoutLog, create_tables
+from src.api.schemas import PredictRequest, PredictResponse, LogRequest, PushTokenRequest, _FIELD_TO_COL, _FEATURE_COLS
+from src.api.db import SessionLocal, WorkoutLog, PushToken, create_tables
 from src.data.consts import lookup_pct_1rm
 
+_MEDIA_DIR = "data/exercises_dataset"
+RETRAIN_EVERY = int(os.environ.get("RETRAIN_EVERY", "20"))
+_PREFECT_API = os.environ.get("PREFECT_API_URL", "http://prefect:4200/api")
+_DEPLOYMENT = "overload-retraining-pipeline/scheduled-retraining"
 _API_KEY = os.environ.get("API_KEY", "")
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-def verify_api_key(key: str | None = Security(_api_key_header)):
-    if not _API_KEY:
-        return  # not configured — open in dev
-    if key != _API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 _model = None
 _version = None
 _exercise_map: dict[str, int] = {}
 _exercise_list: list[dict] = []
 _exercise_info: dict[str, dict] = {}  # lowercase name → full dataset entry
+
+def _trigger_retraining():
+    """Fire-and-forget: ask Prefect to create a flow run for the retraining deployment."""
+    try:
+        resp = _requests.get(f"{_PREFECT_API}/deployments/name/{_DEPLOYMENT}", timeout=5)
+        if resp.status_code != 200:
+            print(f"[retrain] deployment not found ({resp.status_code}) — run flow.py first")
+            return
+        deployment_id = resp.json()["id"]
+        _requests.post(f"{_PREFECT_API}/deployments/{deployment_id}/create_flow_run", json={}, timeout=5)
+        print(f"[retrain] triggered retraining pipeline")
+    except Exception as exc:
+        print(f"[retrain] trigger failed: {exc}")
+
+
+def verify_api_key(key: str | None = Security(_api_key_header)):
+    if not _API_KEY:
+        return  # not configured — open in dev
+    if key != _API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
 def _build_exercise_list(exercise_map: dict[str, int]) -> list[dict]:
@@ -64,8 +85,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Overload Predictor", lifespan=lifespan, dependencies=[Depends(verify_api_key)])
-
-_MEDIA_DIR = "data/exercises_dataset"
 if os.path.isdir(_MEDIA_DIR):
     app.mount("/media", StaticFiles(directory=_MEDIA_DIR), name="media")
 
@@ -140,8 +159,24 @@ def predict(req: PredictRequest):
     )
 
 
+@app.post("/register-push-token", status_code=200)
+def register_push_token(req: PushTokenRequest):
+    db = SessionLocal()
+    try:
+        exists = db.query(PushToken).filter(PushToken.token == req.token).first()
+        if not exists:
+            db.add(PushToken(token=req.token))
+            db.commit()
+        return {"status": "ok"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(500, f"Failed to register token: {exc}")
+    finally:
+        db.close()
+
+
 @app.post("/log", status_code=201)
-def log_session(req: LogRequest):
+def log_session(req: LogRequest, background: BackgroundTasks):
     exercise_key = req.exercise.lower()
     if exercise_key not in _exercise_map:
         raise HTTPException(422, f"Unknown exercise: '{req.exercise}'")
@@ -152,6 +187,9 @@ def log_session(req: LogRequest):
         db.add(entry)
         db.commit()
         db.refresh(entry)
+        count = db.query(func.count(WorkoutLog.id)).scalar()
+        if count % RETRAIN_EVERY == 0:
+            background.add_task(_trigger_retraining)
         return {"id": entry.id, "status": "logged"}
     except Exception as exc:
         db.rollback()
@@ -163,7 +201,11 @@ def log_session(req: LogRequest):
 @app.post("/reload")
 def reload():
     global _model, _version
-    _model, _version = load_model()
-    if _model is None:
+    new_model, new_version = load_model()
+    if new_model is None:
         raise HTTPException(503, "No Production model found in MLflow")
+    old_model = _model
+    _model, _version = new_model, new_version
+    del old_model
+    gc.collect()
     return {"status": "reloaded", "model_version": _version.version}

@@ -10,3 +10,4 @@ sqlalchemy==2.0.41
 psycopg2-binary==2.9.10
 anthropic==0.97.0
 rapidfuzz==3.14.5
+requests==2.32.4
