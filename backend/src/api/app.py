@@ -139,23 +139,29 @@ def predict(req: PredictRequest):
 
     # Build the feature row with training column names, then order correctly
     row = {_FIELD_TO_COL[k]: v for k, v in req.model_dump().items() if k in _FIELD_TO_COL}
-    row["exercise_id"] = exercise_id
-    row["week_pct"]    = week_pct
-    row["lag_pct_1rm"] = lag_pct_1rm
-    row["lag_volume"]  = lag_volume
+    lag2_pct_1rm = lookup_pct_1rm(req.lag2_reps, req.lag2_rpe) if req.lag2_rpe > 0 else None
+    lag3_pct_1rm = lookup_pct_1rm(req.lag3_reps, req.lag3_rpe) if req.lag3_rpe > 0 else None
+
+    row["exercise_id"]         = exercise_id
+    row["week_pct"]            = week_pct
+    row["week_pct2"]           = week_pct ** 2
+    row["lag_pct_1rm"]         = lag_pct_1rm
+    row["lag_volume"]          = lag_volume
+    row["lag_delta_reps"]      = req.lag_reps - req.lag2_reps if req.lag2_rpe > 0 else 0.0
+    row["lag2_delta_reps"]     = req.lag2_reps - req.lag3_reps if req.lag3_rpe > 0 else 0.0
+    row["lag_delta_pct_1rm"]   = lag_pct_1rm - lag2_pct_1rm if lag2_pct_1rm is not None else 0.0
+    row["lag2_delta_pct_1rm"]  = lag2_pct_1rm - lag3_pct_1rm if (lag2_pct_1rm is not None and lag3_pct_1rm is not None) else 0.0
 
     df = pd.DataFrame([row])[_FEATURE_COLS]
 
-    # TARGETS order in train.py: ["delta_sets", "delta_reps", "delta_pct_1rm"]
-    delta_sets, delta_reps, delta_pct_1rm = _model.predict(df)[0]
+    # TARGETS order in train.py: ["delta_reps", "delta_pct_1rm"]
+    delta_reps, delta_pct_1rm = _model.predict(df)[0]
 
     return PredictResponse(
-        delta_sets=round(delta_sets, 2),
         delta_reps=round(delta_reps, 2),
         delta_pct_1rm=round(delta_pct_1rm, 4),
-        next_sets=max(1, min(10, round(req.lag_sets + delta_sets))),
         next_reps=max(1, min(12, round(req.lag_reps + delta_reps))),
-        next_weight_kg=round(round((lag_pct_1rm + delta_pct_1rm) * req.one_rm / 5) * 5, 2),
+        next_weight_kg=round(round((lag_pct_1rm + delta_pct_1rm) * req.one_rm / 2.5) * 2.5, 2),
     )
 
 

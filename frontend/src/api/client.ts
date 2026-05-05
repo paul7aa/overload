@@ -12,6 +12,10 @@ export type PredictRequest = {
   lag_sets: number;
   lag_reps: number;
   lag_rpe: number;
+  lag2_reps?: number;
+  lag2_rpe?: number;
+  lag3_reps?: number;
+  lag3_rpe?: number;
   week: number;
   day: number;
   program_length: number;
@@ -34,13 +38,15 @@ export type PredictRequest = {
   equipment_dumbbell_only?: number;
   equipment_full_gym?: number;
   equipment_garage_gym?: number;
+  is_deload?: number;
+  overload_linear?: number;
+  overload_undulating?: number;
+  overload_block?: number;
 };
 
 export type PredictResponse = {
-  delta_sets: number;
   delta_reps: number;
   delta_pct_1rm: number;
-  next_sets: number;
   next_reps: number;
   next_weight_kg: number;
 };
@@ -109,6 +115,16 @@ export function equipmentFlags(program: Program) {
     equipment_dumbbell_only: e === 'Dumbbell Only' ? 1 : 0,
     equipment_full_gym:      e === 'Full Gym'      ? 1 : 0,
     equipment_garage_gym:    e === 'Garage Gym'    ? 1 : 0,
+  };
+}
+
+export function overloadFlags(program: Program, isDeload = false) {
+  const t = program.overloadType ?? 'linear';
+  return {
+    is_deload:           isDeload          ? 1 : 0,
+    overload_linear:     t === 'linear'     ? 1 : 0,
+    overload_undulating: t === 'undulating' ? 1 : 0,
+    overload_block:      t === 'block'      ? 1 : 0,
   };
 }
 

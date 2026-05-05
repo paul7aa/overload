@@ -8,7 +8,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../theme';
 import { Exercise, ExerciseLog, LastSessionEntry, ProgramExercise, RootStackParamList, WorkoutRecord, WorkoutDay } from '../types';
 import { HISTORY_KEY } from './WorkoutCompleteScreen';
-import { equipmentFlags, ExerciseInfo, fetchExerciseInfo, goalFlags, levelFlags, predict, PredictResponse } from '../api/client';
+import { equipmentFlags, ExerciseInfo, fetchExerciseInfo, goalFlags, levelFlags, overloadFlags, predict, PredictResponse } from '../api/client';
 import EXERCISES from '../data/exercises.json';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWorkout'>;
@@ -63,7 +63,10 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const [swapQuery, setSwapQuery] = useState('');
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [exerciseInfo, setExerciseInfo] = useState<ExerciseInfo | null>(null);
+  const [isDeload, setIsDeload] = useState(false);
   const lastSessionRef = useRef<Record<string, LastSessionEntry>>({});
+  const secondLastSessionRef = useRef<Record<string, LastSessionEntry>>({});
+  const thirdLastSessionRef = useRef<Record<string, LastSessionEntry>>({});
   const isFinishing = useRef(false);
   const startTime = useRef(0);
   const notifId = useRef<string | null>(null);
@@ -145,9 +148,11 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   }, [exerciseIndex]);
 
   const startWorkout = async (day: WorkoutDay) => {
-    const [dayCountRaw, lastSessionRaw] = await Promise.all([
+    const [dayCountRaw, lastSessionRaw, secondLastSessionRaw, thirdLastSessionRaw] = await Promise.all([
       AsyncStorage.getItem(`day_count_${program.id}_${day.dayNumber}`),
       AsyncStorage.getItem(`last_session_${program.id}`),
+      AsyncStorage.getItem(`second_last_session_${program.id}`),
+      AsyncStorage.getItem(`third_last_session_${program.id}`),
     ]);
     const week = (dayCountRaw ? parseInt(dayCountRaw) : 0) + 1;
     setWeekNumber(week);
@@ -172,20 +177,26 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
 
     const lastSession: Record<string, LastSessionEntry> = lastSessionRaw ? JSON.parse(lastSessionRaw) : {};
     lastSessionRef.current = lastSession;
+    secondLastSessionRef.current = secondLastSessionRaw ? JSON.parse(secondLastSessionRaw) : {};
+    thirdLastSessionRef.current = thirdLastSessionRaw ? JSON.parse(thirdLastSessionRaw) : {};
     const eligibleExercises = day.exercises.filter(ex => lastSession[ex.name]?.oneRm > 0);
     if (eligibleExercises.length === 0) return;
 
     setPredictionsStatus('loading');
-    const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program) };
+    const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program), ...overloadFlags(program, isDeload) };
     const results = await Promise.all(
       eligibleExercises.map(ex => {
-        const prev = lastSession[ex.name];
+        const prev  = lastSession[ex.name];
+        const prev2 = secondLastSessionRef.current[ex.name];
+        const prev3 = thirdLastSessionRef.current[ex.name];
         return predict({
           exercise: ex.name,
           one_rm: prev.oneRm,
           lag_sets: prev.sets,
           lag_reps: prev.reps,
           lag_rpe: prev.rpe,
+          ...(prev2 && { lag2_reps: prev2.reps, lag2_rpe: prev2.rpe }),
+          ...(prev3 && { lag3_reps: prev3.reps, lag3_rpe: prev3.rpe }),
           week,
           day: day.dayNumber,
           program_length: program.lengthWeeks,
@@ -194,9 +205,9 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
           weeks_gap: 1,
           ...flags,
         }).then(res => ({ name: ex.name, res })).catch(err => {
-            console.warn(`[predict] failed for "${ex.name}":`, err);
-            return null;
-          });
+          console.warn(`[predict] failed for "${ex.name}":`, err);
+          return null;
+        });
       })
     );
 
@@ -245,15 +256,36 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
         </ScrollView>
         {pickedDay && (
           <View
-            className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border"
+            className="absolute bottom-0 left-0 right-0 bg-background border-t border-border"
             style={{ paddingBottom: bottom || 16 }}
           >
             <Pressable
-              className="bg-accent rounded-[10px] p-4 items-center"
-              onPress={() => startWorkout(pickedDay)}
+              className="flex-row items-center justify-between px-5 py-3.5 border-b border-border"
+              onPress={() => setIsDeload(v => !v)}
             >
-              <Text className="text-background font-bold text-15">Start Day {pickedDay.dayNumber}</Text>
+              <View>
+                <Text className="text-base font-outfit text-primary">Deload week</Text>
+                <Text className="text-xs font-outfit text-secondary mt-0.5">Reduce volume & intensity for recovery</Text>
+              </View>
+              <View
+                className={`w-12 h-7 rounded-full ${isDeload ? 'bg-accent' : 'bg-border'}`}
+                style={{ padding: 2 }}
+              >
+                <View style={{
+                  width: 23, height: 23, borderRadius: 12,
+                  backgroundColor: 'white',
+                  alignSelf: isDeload ? 'flex-end' : 'flex-start',
+                }} />
+              </View>
             </Pressable>
+            <View className="p-4">
+              <Pressable
+                className="bg-accent rounded-[10px] p-4 items-center"
+                onPress={() => startWorkout(pickedDay)}
+              >
+                <Text className="text-background font-bold text-15">Start Day {pickedDay.dayNumber}</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
@@ -327,12 +359,16 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     setSwapModalVisible(false);
     setSwapQuery('');
 
-    const prev = lastSessionRef.current[newEx.name];
+    const prev  = lastSessionRef.current[newEx.name];
+    const prev2 = secondLastSessionRef.current[newEx.name];
+    const prev3 = thirdLastSessionRef.current[newEx.name];
     if (prev?.oneRm > 0) {
-      const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program) };
+      const flags = { ...levelFlags(program), ...goalFlags(program), ...equipmentFlags(program), ...overloadFlags(program, isDeload) };
       predict({
         exercise: newEx.name, one_rm: prev.oneRm,
         lag_sets: prev.sets, lag_reps: prev.reps, lag_rpe: prev.rpe,
+        ...(prev2 && { lag2_reps: prev2.reps, lag2_rpe: prev2.rpe }),
+        ...(prev3 && { lag3_reps: prev3.reps, lag3_rpe: prev3.rpe }),
         week: weekNumber, day: currentLog.dayNumber,
         program_length: program.lengthWeeks, time_per_workout: program.timePerWorkout,
         number_of_exercises: logs.length, weeks_gap: 1, ...flags,
@@ -508,7 +544,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
               <Text className="text-background text-11 font-bold">AI</Text>
             </View>
             <Text className="text-13 font-outfit text-accent">Suggests</Text>
-            <Text className="text-17 font-outfit-bold text-accent">{predictions[ex.name].next_sets} × {predictions[ex.name].next_reps}</Text>
+            <Text className="text-17 font-outfit-bold text-accent">{prevSession?.sets} × {predictions[ex.name].next_reps}</Text>
             <Text className="text-13 font-outfit text-secondary">@</Text>
             <Text className="text-17 font-outfit-bold text-accent">{predictions[ex.name].next_weight_kg} kg</Text>
           </View>

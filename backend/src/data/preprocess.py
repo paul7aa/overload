@@ -1,50 +1,65 @@
 """
-Cleans and feature-engineers the raw Boostcamp program dataset into train/val splits
+Cleans and feature-engineers the Boostcamp program dataset into train/val splits
 ready for model training. Outputs data/train.csv and data/val.csv.
+
+Train/val split is by program (not by row) to prevent data leakage.
+User logs from PostgreSQL are appended to the train set with higher sample weights.
 
 Output fields
 ─────────────
 Context
-  program_id          label-encoded program identifier (used for train/val split only)
+  program_id          label-encoded program identifier (train/val split key, dropped during training)
   program_length      total weeks in the program
   time_per_workout    planned session duration (minutes)
   week                current week number
   day                 day within the week
   week_pct            week / program_length — relative position in the program arc
+  week_pct2           week_pct² — captures non-linear periodization curves
   number_of_exercises number of exercises in the session
 
 Exercise
   exercise_id         label-encoded exercise name
 
-Current prescription
+Periodization intent
+  is_deload           1 if this week's intensity is >12% below the 3-session rolling peak
+  overload_linear     program classified as linear (steadily increasing intensity)
+  overload_undulating program classified as undulating (alternating heavy/light weeks)
+  overload_block      program classified as block (phases + periodic deloads)
+
+Current prescription (dropped during training — used to compute targets and lag features)
   sets                number of sets this week
   reps                number of reps this week
   intensity           RPE (6-10)
-  pct_1rm             estimated % of 1RM derived from reps + RPE via Tuchscherer table
-  volume              sets × reps
+  pct_1rm             estimated % of 1RM via Tuchscherer table
+  volume              sets × reps × pct_1rm (intensity-weighted volume)
 
-Previous week (lag features)
+Lag features — last session
   lag_sets            sets from the previous occurrence of this exercise
   lag_reps            reps from the previous occurrence
   lag_pct_1rm         pct_1rm from the previous occurrence
   lag_volume          volume from the previous occurrence
-  weeks_gap           weeks elapsed since the previous occurrence (0 = same week, different day)
+  weeks_gap           weeks elapsed since the previous occurrence
+
+Trend features — direction and acceleration (velocity entering this week)
+  lag_delta_reps      lag_reps minus the session before that (reps velocity)
+  lag2_delta_reps     two sessions back minus three sessions back (reps acceleration)
+  lag_delta_pct_1rm   lag_pct_1rm minus the session before that (intensity velocity)
+  lag2_delta_pct_1rm  two sessions back minus three sessions back (intensity acceleration)
 
 Fitness level (multi-hot)
   level_Advanced, level_Beginner, level_Intermediate, level_Novice
 
 Goal (multi-hot)
-  goal_Athletics, goal_Bodybuilding, goal_Bodyweight Fitness,
-  goal_Muscle & Sculpting, goal_Olympic Weightlifting,
+  goal_At-Home & Calisthenics, goal_Athletics, goal_Bodybuilding,
+  goal_Bodyweight Fitness, goal_Muscle & Sculpting, goal_Olympic Weightlifting,
   goal_Powerbuilding, goal_Powerlifting
 
 Equipment (one-hot)
   At Home, Dumbbell Only, Full Gym, Garage Gym
 
 Targets (week-over-week deltas — what the model predicts)
-  delta_sets          change in sets vs previous week
-  delta_reps          change in reps vs previous week
-  delta_pct_1rm       change in relative load vs previous week
+  delta_reps          change in reps vs previous session
+  delta_pct_1rm       change in relative load vs previous session
 """
 
 import ast
@@ -110,17 +125,19 @@ def process_user_logs(raw_df: pd.DataFrame, exercise_map: dict) -> pd.DataFrame:
     if df.empty:
         return df
 
-    df["exercise_id"]   = df["exercise"].map(exercise_map)
-    df["pct_1rm"]       = df.apply(lambda r: lookup_pct_1rm(r["reps"],     r["rpe"]),     axis=1)
-    df["lag_pct_1rm"]   = df.apply(lambda r: lookup_pct_1rm(r["lag_reps"], r["lag_rpe"]), axis=1)
-    df["lag_volume"]    = df["lag_sets"] * df["lag_reps"]
-    df["volume"]        = df["sets"] * df["reps"]
-    df["week_pct"]      = (df["week"] / df["program_length"]).round(3)
-    df["delta_sets"]    = df["sets"] - df["lag_sets"]
-    df["delta_reps"]    = df["reps"] - df["lag_reps"]
-    df["delta_pct_1rm"] = df["pct_1rm"] - df["lag_pct_1rm"]
-    df["intensity"]     = df["rpe"]   # kept so train.py DROP_COLS stays consistent
-    df["program_id"]    = -1          # dummy — dropped by train.py
+    df["exercise_id"]       = df["exercise"].map(exercise_map)
+    df["pct_1rm"]           = df.apply(lambda r: lookup_pct_1rm(r["reps"],     r["rpe"]),     axis=1)
+    df["lag_pct_1rm"]       = df.apply(lambda r: lookup_pct_1rm(r["lag_reps"], r["lag_rpe"]), axis=1)
+    df["lag_volume"]        = df["lag_sets"] * df["lag_reps"] * df["lag_pct_1rm"]
+    df["volume"]            = df["sets"] * df["reps"] * df["pct_1rm"]
+    df["week_pct"]          = (df["week"] / df["program_length"]).round(3)
+    df["week_pct2"]         = df["week_pct"] * df["week_pct"]
+    df["delta_sets"]        = df["sets"] - df["lag_sets"]
+    df["delta_reps"]        = df["reps"] - df["lag_reps"]
+    df["delta_pct_1rm"]     = df["pct_1rm"] - df["lag_pct_1rm"]
+    df["lag_delta_pct_1rm"] = 0.0
+    df["intensity"]         = df["rpe"]
+    df["program_id"]        = -1
 
     df = df.rename(columns={**GOAL_COL_MAP, **EQUIPMENT_COL_MAP})
 
@@ -130,6 +147,62 @@ def process_user_logs(raw_df: pd.DataFrame, exercise_map: dict) -> pd.DataFrame:
     logger.info("Processed %d user log rows into training format", len(df))
     return df
       
+
+def tag_deload_weeks(data: pd.DataFrame) -> pd.DataFrame:
+    """Flag weeks where the current prescribed intensity is a significant drop from recent peak.
+
+    Rolling max covers the 3 previous sessions for this exercise in this program.
+    The 88% threshold (~12% drop) captures intentional deload reductions while
+    ignoring normal session-to-session noise. Early rows with <2 prior sessions get 0.
+    """
+    rolling_peak = data.groupby(["title", "exercise_id"])["pct_1rm"].transform(
+        lambda x: x.shift(1).rolling(3, min_periods=2).max()
+    )
+    data["is_deload"] = (
+        (data["pct_1rm"] < rolling_peak * 0.88) &
+        rolling_peak.notna() &
+        (rolling_peak > 0.65)
+    ).astype(int)
+    return data
+
+
+def classify_programs(data: pd.DataFrame) -> pd.DataFrame:
+    """Classify each program's periodization style from its intensity pattern.
+
+    linear:     intensity steadily increases (>55% of week-over-week changes positive)
+    block:      positive trend punctuated by large drops - 10%+ weeks drop >7% of 1RM
+    undulating: roughly balanced mix of up and down weeks
+    """
+    def _classify_from_diffs(diffs: pd.Series) -> str:
+        if len(diffs) < 3:
+            return "linear"
+        large_neg = (diffs < -0.07).mean()
+        pos = (diffs > 0.02).mean()
+        neg = (diffs < -0.02).mean()
+        if large_neg > 0.10:
+            return "block"
+        if abs(pos - neg) < 0.20:
+            return "undulating"
+        return "linear"
+
+    types = {}
+    for title, group in data.groupby("title"):
+        all_diffs = pd.concat([
+            ex.sort_values("week")["pct_1rm"].diff().dropna()
+            for _, ex in group.groupby("exercise_id")
+        ])
+        types[title] = _classify_from_diffs(all_diffs)
+
+    data["overload_type"] = data["title"].map(types)
+    dummies = pd.get_dummies(data["overload_type"], prefix="overload")
+    data = data.drop(columns=["overload_type"]).join(dummies)
+
+    for col in ["overload_linear", "overload_undulating", "overload_block"]:
+        if col not in data.columns:
+            data[col] = 0
+
+    return data
+
 
 def preprocess():
     logger.info("Loading dataset from %s", DATASET_PATH)
@@ -161,15 +234,32 @@ def preprocess():
     data = data.drop("equipment", axis=1).join(pd.get_dummies(data["equipment"]))
 
     exercise_map = json.load(open("data/exercise_map.json"))
+
     data["exercise_id"] = data["exercise_name"].map(exercise_map)
     data = data.drop(columns=["exercise_name"])
 
     data["week_pct"] = (data["week"] / data["program_length"]).round(3)
-    data["volume"] = data["reps"] * data["sets"]
+    data["week_pct2"] = data["week_pct"] * data["week_pct"]
+    data["volume"] = data["reps"] * data["sets"] * data["pct_1rm"]
 
     data = data.sort_values(by=["title", "exercise_id", "week", "day"])
+    data = tag_deload_weeks(data)
+    data = classify_programs(data)
+
     for col in ["sets", "reps", "pct_1rm", "volume"]:
         data[f"lag_{col}"] = data.groupby(["title", "exercise_id"])[col].shift(1)
+
+    # Two-step trend for both intensity and reps: direction + acceleration.
+    # Sessions with fewer than 2/3 prior rows fall back to 0 (no trend yet).
+    lag2_pct_1rm = data.groupby(["title", "exercise_id"])["pct_1rm"].shift(2)
+    lag3_pct_1rm = data.groupby(["title", "exercise_id"])["pct_1rm"].shift(3)
+    data["lag_delta_pct_1rm"]  = (data["lag_pct_1rm"] - lag2_pct_1rm).fillna(0)
+    data["lag2_delta_pct_1rm"] = (lag2_pct_1rm - lag3_pct_1rm).fillna(0)
+
+    lag2_reps = data.groupby(["title", "exercise_id"])["reps"].shift(2)
+    lag3_reps = data.groupby(["title", "exercise_id"])["reps"].shift(3)
+    data["lag_delta_reps"]  = (data["lag_reps"] - lag2_reps).fillna(0)
+    data["lag2_delta_reps"] = (lag2_reps - lag3_reps).fillna(0)
 
     data["lag_week"] = data.groupby(["title", "exercise_id"])["week"].shift(1)
     data["weeks_gap"] = data["week"] - data["lag_week"]

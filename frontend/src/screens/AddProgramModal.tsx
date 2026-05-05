@@ -44,6 +44,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddProgram'>;
 const LEVELS    = ['Beginner', 'Novice', 'Intermediate', 'Advanced'];
 const GOALS     = ['Powerlifting', 'Powerbuilding', 'Bodybuilding', 'Muscle & Sculpting', 'Athletics', 'Bodyweight Fitness', 'At-Home & Calisthenics', 'Olympic Weightlifting'];
 const EQUIPMENT = ['Full Gym', 'Garage Gym', 'Dumbbell Only', 'At Home'];
+const OVERLOAD_TYPES = [
+  { key: 'linear',     label: 'Linear',     hint: 'Recommended',  description: 'Add reps or weight each session' },
+  { key: 'undulating', label: 'Undulating', hint: null,           description: 'Rotate between heavy, moderate and light weeks' },
+  { key: 'block',      label: 'Block',      hint: null,           description: 'Multi-week phases: build → intensify → peak → deload' },
+] as const;
 const MAX_DAYS  = 7;
 const TOTAL_STEPS = 5;
 const PROGRAMS_KEY = 'programs';
@@ -158,6 +163,7 @@ export default function AddProgramModal({ navigation, route }: Props) {
   const [equipment, setEquipment] = useState<string | null>(editing?.equipment ?? null);
   const [lengthWeeks, setLengthWeeks] = useState(String(editing?.lengthWeeks ?? 12));
   const [timePerWorkout, setTimePerWorkout] = useState(String(editing?.timePerWorkout ?? 60));
+  const [overloadType, setOverloadType] = useState<'linear' | 'undulating' | 'block'>(editing?.overloadType ?? 'linear');
   const [days, setDays] = useState<WorkoutDay[]>(editing?.days ?? [{ dayNumber: 1, exercises: [] }]);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -276,6 +282,7 @@ export default function AddProgramModal({ navigation, route }: Props) {
       equipment: equipment!,
       lengthWeeks: parseInt(lengthWeeks),
       timePerWorkout: parseInt(timePerWorkout),
+      overloadType,
       days,
     };
     const next = editing
@@ -339,6 +346,24 @@ export default function AddProgramModal({ navigation, route }: Props) {
             onChangeText={setTimePerWorkout}
             placeholderTextColor={colors.secondary}
           />
+          <Text className="text-base font-outfit text-primary font-semibold mb-3 mt-7">Progression style</Text>
+          <View className="gap-2">
+            {OVERLOAD_TYPES.map(({ key, label, hint, description }) => (
+              <Pressable
+                key={key}
+                className={`p-4 rounded-lg border ${overloadType === key ? 'bg-accent border-accent' : 'border-border'}`}
+                onPress={() => setOverloadType(key)}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Text className={`text-sm font-semibold font-outfit ${overloadType === key ? 'text-background' : 'text-primary'}`}>{label}</Text>
+                  {hint && (
+                    <Text className={`text-xs font-outfit px-1.5 py-0.5 rounded ${overloadType === key ? 'bg-background/20 text-background' : 'bg-surface text-secondary border border-border'}`}>{hint}</Text>
+                  )}
+                </View>
+                <Text className={`text-xs font-outfit mt-1 ${overloadType === key ? 'text-background/80' : 'text-secondary'}`}>{description}</Text>
+              </Pressable>
+            ))}
+          </View>
         </>}
 
         {step === 5 && <>

@@ -14,6 +14,14 @@ class PredictRequest(BaseModel):
     lag_reps: float
     lag_rpe: float         # RPE 6–10; converted to lag_pct_1rm internally
 
+    # ── Two weeks ago (optional — omit or set to 0 on first session) ─────────
+    lag2_reps: float = 0
+    lag2_rpe: float = 0
+
+    # ── Three weeks ago (optional — omit or set to 0 if fewer than 3 sessions) ─
+    lag3_reps: float = 0
+    lag3_rpe: float = 0
+
     # ── Position in the program ─────────────────────────────────────────────
     week: int              # current week number (1-indexed)
     day: int               # day within the week (1-indexed)
@@ -46,14 +54,18 @@ class PredictRequest(BaseModel):
     equipment_full_gym: int = 0          # "Full Gym"
     equipment_garage_gym: int = 0        # "Garage Gym"
 
+    # ── Periodization intent ─────────────────────────────────────────────────
+    is_deload: int = 0                   # 1 if this week is a planned deload
+    overload_linear: int = 0            # linear progression (add reps/weight each week)
+    overload_undulating: int = 0        # alternating heavy/moderate/light weeks
+    overload_block: int = 0             # multi-week blocks with periodic deloads
+
 
 class PredictResponse(BaseModel):
-    delta_sets: float
     delta_reps: float
     delta_pct_1rm: float
 
     # Absolute prescription for next session
-    next_sets: int
     next_reps: int
     next_weight_kg: float
 
@@ -134,6 +146,10 @@ _FIELD_TO_COL = {
     "equipment_dumbbell_only":    "Dumbbell Only",
     "equipment_full_gym":         "Full Gym",
     "equipment_garage_gym":       "Garage Gym",
+    "is_deload":                  "is_deload",
+    "overload_linear":            "overload_linear",
+    "overload_undulating":        "overload_undulating",
+    "overload_block":             "overload_block",
     "lag_sets":                   "lag_sets",
     "lag_reps":                   "lag_reps",
     "weeks_gap":                  "weeks_gap",
@@ -147,6 +163,10 @@ _FEATURE_COLS = [
     "goal_Bodyweight Fitness", "goal_Muscle & Sculpting", "goal_Olympic Weightlifting",
     "goal_Powerbuilding", "goal_Powerlifting",
     "At Home", "Dumbbell Only", "Full Gym", "Garage Gym",
-    "exercise_id", "week_pct",
-    "lag_sets", "lag_reps", "lag_pct_1rm", "lag_volume", "weeks_gap",
+    "is_deload", "overload_linear", "overload_undulating", "overload_block",
+    "exercise_id",
+    "week_pct", "week_pct2",
+    "lag_sets", "lag_reps", "lag_pct_1rm", "lag_volume",
+    "lag_delta_reps", "lag2_delta_reps",
+    "lag_delta_pct_1rm", "lag2_delta_pct_1rm", "weeks_gap",
 ]

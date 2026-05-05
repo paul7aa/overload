@@ -22,12 +22,11 @@ EXPERIMENT_NAME = "overload-predictor"
 MODEL_NAME      = "overload-predictor"
 ALIAS_PROD      = "Production"
 
-TARGETS = ["delta_sets", "delta_reps", "delta_pct_1rm"]
+TARGETS = ["delta_reps", "delta_pct_1rm"]
 
 WEIGHTS = {
     "delta_pct_1rm": 0.50,
-    "delta_reps":    0.35,
-    "delta_sets":    0.15,
+    "delta_reps":    0.50,
 }
 
 # challenger must beat champion by at least this much to be promoted (guards against noise)

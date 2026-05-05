@@ -173,7 +173,7 @@ print("\n" + "=" * 60)
 print("RPE → % 1RM LOOKUP VALIDATION")
 print("=" * 60)
 
-from backend.src.data.consts import  lookup_pct_1rm
+from consts import  lookup_pct_1rm
 
 # Apply to rep-based rows within the reliable reps/RPE range
 eligible = rep_based[
@@ -214,3 +214,64 @@ print(f"Weeks where relative load unchanged: {(deltas_pct == 0).mean()*100:.1f}%
 # Mean pct_1rm by week — should show a general trend
 print("\nMean pct_1rm per week (rep-based, eligible rows):")
 print(eligible.groupby("week")["pct_1rm"].mean().round(3).to_string())
+
+
+# ── Intensity variation per exercise — lag feature value ─────────────────────
+# Question: does pct_1rm actually change across weeks for the same exercise?
+# If within-exercise std is near zero, the lag features carry almost no signal.
+# If autocorrelation is high, knowing last week's pct_1rm strongly predicts this week's.
+
+print("\n" + "=" * 60)
+print("INTENSITY VARIATION PER EXERCISE")
+print("=" * 60)
+
+# Per-(program, exercise) std of pct_1rm across weeks
+# High std → intensity varies a lot within a program (lag is potentially useful)
+# Low std  → intensity barely moves (lag adds little)
+within_std = (
+    eligible.groupby(["title", "exercise_name"])["pct_1rm"]
+    .std()
+    .dropna()
+)
+print("\nWithin-(program, exercise) pct_1rm std:")
+print(within_std.describe().round(4))
+print(f"\n% of (program, exercise) pairs with std < 0.02: "
+      f"{(within_std < 0.02).mean()*100:.1f}%  (intensity nearly flat)")
+print(f"% with std > 0.05: "
+      f"{(within_std > 0.05).mean()*100:.1f}%  (meaningful variation)")
+
+# Lag-1 autocorrelation of pct_1rm within each (program, exercise) sequence
+# Measures: if I know last week's pct_1rm, how much does it predict this week's?
+# Autocorrelation close to 1.0 → strong memory, lag features are very informative
+agg_pct_sorted = agg_pct.sort_values(["title", "exercise_name", "week"])
+agg_pct_sorted["lag_pct_1rm"] = agg_pct_sorted.groupby(["title", "exercise_name"])["pct_1rm"].shift(1)
+pairs = agg_pct_sorted.dropna(subset=["lag_pct_1rm"])
+autocorr = pairs[["pct_1rm", "lag_pct_1rm"]].corr().iloc[0, 1]
+print(f"\nLag-1 autocorrelation of pct_1rm (across all exercises): {autocorr:.4f}")
+print("  (1.0 = this week identical to last, 0 = no memory, <0 = oscillates)")
+
+# Per-exercise autocorrelation — some exercises may be more programmed than others
+per_ex_autocorr = (
+    pairs.groupby("exercise_name")
+    .apply(lambda g: g["pct_1rm"].corr(g["lag_pct_1rm"]) if len(g) >= 5 else None,
+       include_groups=False)
+    .dropna()
+    .sort_values(ascending=False)
+)
+print("\nPer-exercise lag-1 autocorrelation (top 10 most predictable):")
+print(per_ex_autocorr.head(10).round(4).to_string())
+print("\nPer-exercise lag-1 autocorrelation (bottom 10 — most volatile):")
+print(per_ex_autocorr.tail(10).round(4).to_string())
+
+# Concrete week-by-week progression for the 3 most common exercises
+print("\nWeek-by-week mean pct_1rm for the 3 most common exercises:")
+top3 = eligible["exercise_name"].value_counts().head(3).index
+for ex in top3:
+    ex_weekly = (
+        eligible[eligible["exercise_name"] == ex]
+        .groupby("week")["pct_1rm"]
+        .mean()
+        .round(4)
+    )
+    print(f"\n  {ex}:")
+    print(ex_weekly.to_string())

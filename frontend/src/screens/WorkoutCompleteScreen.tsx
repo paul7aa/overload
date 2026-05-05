@@ -59,7 +59,10 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
       console.log('[WorkoutComplete] saved record:', JSON.stringify(record, null, 2));
 
-      const lastRaw = await AsyncStorage.getItem(`last_session_${program.id}`);
+      const [lastRaw, secondLastRaw] = await Promise.all([
+        AsyncStorage.getItem(`last_session_${program.id}`),
+        AsyncStorage.getItem(`second_last_session_${program.id}`),
+      ]);
       const lastSession: Record<string, LastSessionEntry> = lastRaw ? JSON.parse(lastRaw) : {};
       const newLastSession: Record<string, LastSessionEntry> = { ...lastSession };
 
@@ -103,6 +106,8 @@ export default function WorkoutCompleteScreen({ route, navigation }: Props) {
         newLastSession[log.exercise.name] = { sets: completed.length, reps: avgReps, rpe: avgRpe, oneRm, weight: bestSet.weight };
       }
 
+      await AsyncStorage.setItem(`third_last_session_${program.id}`, secondLastRaw ?? '{}');
+      await AsyncStorage.setItem(`second_last_session_${program.id}`, JSON.stringify(lastSession));
       await AsyncStorage.setItem(`last_session_${program.id}`, JSON.stringify(newLastSession));
 
       const dayCountKey = `day_count_${program.id}_${record.dayNumber}`;

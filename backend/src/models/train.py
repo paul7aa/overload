@@ -12,9 +12,10 @@ from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_sco
 
 EXPERIMENT_NAME = "overload-predictor"
 
-TARGETS   = ["delta_sets", "delta_reps", "delta_pct_1rm"]
-DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume", "sample_weight"] + TARGETS
-WEIGHTS   = {"delta_pct_1rm": 0.50, "delta_reps": 0.35, "delta_sets": 0.15}
+TARGETS   = ["delta_reps", "delta_pct_1rm"]
+DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume", "sample_weight",
+             "delta_sets"] + TARGETS
+WEIGHTS   = {"delta_pct_1rm": 0.50, "delta_reps": 0.50}
 
 def _load_data():
     train_data = pd.read_csv("data/train.csv")
@@ -55,32 +56,31 @@ def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y, train_weights=N
 
         mlflow.sklearn.log_model(model, name="model")
 
-        # feature importance — averaged across the three sub-models
         feature_names = train_X.columns.tolist()
         importances = pd.DataFrame(
-            {target: estimator.feature_importances_
-            for target, estimator in zip(TARGETS, model.estimators_)},
-            index=feature_names
+            {target: est.feature_importances_ for target, est in zip(TARGETS, model.estimators_)},
+            index=feature_names,
         )
         importances["mean"] = importances.mean(axis=1)
-        importances = importances.sort_values("mean", ascending=False)
+        mlflow.log_dict(importances.sort_values("mean", ascending=False).to_dict(), "feature_importances.json")
 
         rmse_scores = {
             target: root_mean_squared_error(val_Y[target], val_preds[:, i])
             for i, target in enumerate(TARGETS)
         }
-        score = sum(WEIGHTS[t] * rmse_scores[t] for t in TARGETS)
+        score = sum(WEIGHTS[t] * rmse_scores[t] / val_Y[t].std() for t in TARGETS)
         mlflow.log_metric("weighted_rmse", round(score, 4))
         return score
 
 
 DEFAULT_HYPERPARAMS = {
-    "n_estimators":      531,
-    "learning_rate":     0.016,
-    "num_leaves":        20,
-    "min_child_samples": 18,
-    "subsample":         0.60,
-    "colsample_bytree":  0.84,
+    "n_estimators": 322,
+    "learning_rate": 0.023037,
+    "num_leaves": 80,
+    "min_child_samples": 49,
+    "subsample": 0.760025,
+    "colsample_bytree": 0.831674,
+    "reg_lambda": 8.341831,
     "random_state":      42,
     "n_jobs":            -1,
 }

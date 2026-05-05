@@ -23,6 +23,7 @@ export type Program = {
   equipment: string;
   lengthWeeks: number;
   timePerWorkout: number;
+  overloadType?: 'linear' | 'undulating' | 'block';
   days: WorkoutDay[];
 };
 
