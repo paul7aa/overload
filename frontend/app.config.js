@@ -21,7 +21,7 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0f0f0f"
       },
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./android/app/google-services.json",
       edgeToEdgeEnabled: true,
       package: "com.paul.overload"
     },
