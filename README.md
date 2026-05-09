@@ -2,6 +2,8 @@
 
 A mobile-first workout progression app. You log your sessions; a LightGBM model trained on 200k+ prescriptions from 2,500+ coach-designed programs recommends what to lift next week — and gets smarter from your own logs over time.
 
+<img src="assets/workout_screenshot.jpg" width="280"> <img src="assets/log_screenshot.jpg" width="280">
+
 ---
 
 ## The problem
@@ -77,6 +79,8 @@ The Epley formula (`weight × (1 + reps/30)`) is only used to rank sets within a
 ---
 
 ## Architecture
+
+![Architecture](assets/overload_diagram_dark.png)
 
 ### Retraining pipeline
 
@@ -209,25 +213,20 @@ overload/
 
 ## Quickstart
 
-```bash
-# 1. Download the dataset → backend/data/programs_detailed_canonical.csv
+### 1. Backend
 
-# 2. Start all services
+```bash
+# Copy and fill in environment variables
+cp backend/.env.example backend/.env
+
+# Download the dataset → backend/data/programs_detailed_canonical.csv
+
+# Start all services
 cd backend && docker compose up -d
 
-# 3. Run the training pipeline inside the worker container
+# Run the training pipeline (preprocess → tune → train → evaluate → promote)
+# This takes a few minutes on first run
 docker compose exec worker python -m src.pipeline.flow
-
-# 4. Start the mobile app
-cd frontend && npx expo start
-```
-
-`exercise_map.json` is committed — no mapping step or API keys needed.
-
-The app connects to the backend over your local network. Set your machine's LAN IP in `frontend/.env`:
-
-```
-EXPO_PUBLIC_API_URL=http://<your-machine-ip>:8000
 ```
 
 | UI | URL |
@@ -235,6 +234,25 @@ EXPO_PUBLIC_API_URL=http://<your-machine-ip>:8000
 | MLflow | http://localhost:5001 |
 | Prefect | http://localhost:4200 |
 | API docs | http://localhost:8000/docs |
+
+### 2. Mobile app
+
+```bash
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env with your backend URL and API key
+```
+
+The app needs to reach the backend from your phone. Options:
+
+- **USB (recommended):** `adb reverse tcp:8000 tcp:8000` then set `EXPO_PUBLIC_API_URL=http://localhost:8000`
+- **ngrok:** `ngrok http 8000` then use the printed `https://` URL
+- **LAN IP:** use your machine's IP (e.g. `http://192.168.1.x:8000`) — may be blocked by AP isolation on some routers
+
+```bash
+cd frontend && npx expo start
+```
+
+> **Push notifications** require a development or preview build — they are not supported in Expo Go since SDK 53. Run `eas build --profile development --platform android` for a dev build that supports all features.
 
 ---
 
