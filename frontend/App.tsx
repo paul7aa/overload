@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -53,6 +53,7 @@ Notifications.setNotificationHandler({
   }),
 });
 import { RootStackParamList } from './src/types';
+import { seedDevData } from './src/dev/seed';
 import HomeScreen from './src/screens/HomeScreen';
 import ActiveWorkoutScreen from './src/screens/ActiveWorkoutScreen';
 import WorkoutCompleteScreen from './src/screens/WorkoutCompleteScreen';
@@ -65,8 +66,10 @@ const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background
 
 export default function App() {
   const [fontsLoaded] = useFonts({ Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold });
+  const [devReady, setDevReady] = useState(!__DEV__);
 
   useEffect(() => {
+    if (__DEV__) seedDevData().then(() => setDevReady(true));
     Notifications.requestPermissionsAsync().then(registerPushToken);
     Notifications.setNotificationChannelAsync('workout', {
       name: 'Workout',
@@ -74,7 +77,7 @@ export default function App() {
     });
   }, []);
 
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (!fontsLoaded || !devReady) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -7,7 +7,20 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
-import { Program, RootStackParamList } from '../types';
+import { Program, RootStackParamList, WorkoutRecord } from '../types';
+import { HISTORY_KEY } from './WorkoutCompleteScreen';
+
+function timeAgo(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`;
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -19,16 +32,33 @@ export default function HomeScreen({ navigation }: Props) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Program | null>(null);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [thisWeek, setThisWeek] = useState(0);
+  const [lastWorkout, setLastWorkout] = useState<WorkoutRecord | null>(null);
   const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
 
   useFocusEffect(useCallback(() => {
     const load = async () => {
-      const [raw, saved] = await Promise.all([
+      const [raw, saved, histRaw] = await Promise.all([
         AsyncStorage.getItem(PROGRAMS_KEY),
         AsyncStorage.getItem(SELECTED_KEY),
+        AsyncStorage.getItem(HISTORY_KEY),
       ]);
       if (raw) setPrograms(JSON.parse(raw));
       if (saved) setSelectedId(saved);
+
+      const history: WorkoutRecord[] = histRaw ? JSON.parse(histRaw) : [];
+      setTotalSessions(history.length);
+
+      const now = new Date();
+      const dow = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+      monday.setHours(0, 0, 0, 0);
+      setThisWeek(history.filter(r => new Date(r.completedAt) >= monday).length);
+
+      const sorted = [...history].sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+      setLastWorkout(sorted[0] ?? null);
     };
     load();
   }, []));
@@ -90,6 +120,29 @@ export default function HomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
       </View>
+
+      {totalSessions > 0 && (
+        <View className="flex-row gap-3 px-4 mb-3">
+          <View className="flex-1 bg-surface rounded-[10px] p-4 border border-border items-center">
+            <Text className="text-22 font-outfit-bold text-accent">{totalSessions}</Text>
+            <Text className="text-xs font-outfit text-secondary mt-0.5">Total sessions</Text>
+          </View>
+          <View className="flex-1 bg-surface rounded-[10px] p-4 border border-border items-center">
+            <Text className="text-22 font-outfit-bold text-accent">{thisWeek}</Text>
+            <Text className="text-xs font-outfit text-secondary mt-0.5">This week</Text>
+          </View>
+        </View>
+      )}
+
+      {lastWorkout && (
+        <View className="mx-4 mb-3 bg-surface rounded-[10px] p-4 border border-border">
+          <Text className="text-xs font-outfit text-secondary mb-1">{timeAgo(lastWorkout.completedAt)}</Text>
+          <Text className="text-base font-outfit text-primary font-semibold">{lastWorkout.programName}</Text>
+          <Text className="text-13 font-outfit text-secondary mt-0.5">
+            Day {lastWorkout.dayNumber} · {formatDuration(lastWorkout.durationSeconds)} · {lastWorkout.exercises.length} exercises
+          </Text>
+        </View>
+      )}
 
       {programs.length === 0 ? (
         <View className="flex-1 items-center justify-center">

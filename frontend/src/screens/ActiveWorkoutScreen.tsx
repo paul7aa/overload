@@ -64,6 +64,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [exerciseInfo, setExerciseInfo] = useState<ExerciseInfo | null>(null);
   const [isDeload, setIsDeload] = useState(false);
+  const [bottomBarHeight, setBottomBarHeight] = useState(160);
   const lastSessionRef = useRef<Record<string, LastSessionEntry>>({});
   const secondLastSessionRef = useRef<Record<string, LastSessionEntry>>({});
   const thirdLastSessionRef = useRef<Record<string, LastSessionEntry>>({});
@@ -227,7 +228,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
     return (
       <View className="flex-1 bg-background">
         <Text className="text-22 font-outfit-bold text-accent px-5 pt-8 mb-6">Which day?</Text>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: bottom + 100 }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: bottomBarHeight + 16 }}>
           {program.days.map((day, i) => {
             const isPicked = pickedDay?.dayNumber === day.dayNumber;
             return (
@@ -258,6 +259,7 @@ export default function ActiveWorkoutScreen({ route, navigation }: Props) {
           <View
             className="absolute bottom-0 left-0 right-0 bg-background border-t border-border"
             style={{ paddingBottom: bottom || 16 }}
+            onLayout={e => setBottomBarHeight(e.nativeEvent.layout.height)}
           >
             <Pressable
               className="flex-row items-center justify-between px-5 py-3.5 border-b border-border"

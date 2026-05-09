@@ -46,6 +46,7 @@ def verify_api_key(key: str | None = Security(_api_key_header)):
     if not _API_KEY:
         return  # not configured — open in dev
     if key != _API_KEY:
+        print(key)
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
