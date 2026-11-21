@@ -106,7 +106,12 @@ function mergedLastSession(weekIdx: number): Record<string, LastSessionEntry> {
 }
 
 // Runs once per install — skips if the dev program already exists.
+// Never runs on a device that already has workout history: the multiSet below
+// replaces HISTORY_KEY outright, so seeding there would wipe real sessions.
 export async function seedDevData(): Promise<void> {
+  const existingHistory = await AsyncStorage.getItem(HISTORY_KEY);
+  if (existingHistory && (JSON.parse(existingHistory) as WorkoutRecord[]).length > 0) return;
+
   const existing = await AsyncStorage.getItem(PROGRAMS_KEY);
   const programs: Program[] = existing ? JSON.parse(existing) : [];
   if (programs.some(p => p.id === PROGRAM_ID)) return;

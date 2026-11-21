@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Swipeable } from 'react-native-gesture-handler';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
@@ -35,7 +35,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [totalSessions, setTotalSessions] = useState(0);
   const [thisWeek, setThisWeek] = useState(0);
   const [lastWorkout, setLastWorkout] = useState<WorkoutRecord | null>(null);
-  const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
+  const swipeRefs = useRef<Map<string, SwipeableMethods>>(new Map());
 
   useFocusEffect(useCallback(() => {
     const load = async () => {
@@ -155,7 +155,7 @@ export default function HomeScreen({ navigation }: Props) {
           keyExtractor={p => p.id}
           contentContainerStyle={{ padding: 16, gap: 12 }}
           renderItem={({ item }) => (
-            <Swipeable
+            <ReanimatedSwipeable
               ref={r => { if (r) swipeRefs.current.set(item.id, r); else swipeRefs.current.delete(item.id); }}
               renderRightActions={() => renderActions(item)}
               friction={2}
@@ -169,7 +169,7 @@ export default function HomeScreen({ navigation }: Props) {
                 <Text className="text-13 font-outfit text-secondary">{item.goal.join(', ')} · {item.level.join(', ')} · {item.lengthWeeks}w</Text>
                 <Text className="text-13 font-outfit text-secondary">{item.equipment}</Text>
               </Pressable>
-            </Swipeable>
+            </ReanimatedSwipeable>
           )}
         />
       )}

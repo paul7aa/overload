@@ -7,7 +7,6 @@ module.exports = {
     icon: "./assets/icon.png",
     userInterfaceStyle: "dark",
     backgroundColor: "#0f0f0f",
-    newArchEnabled: true,
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -21,8 +20,7 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0f0f0f"
       },
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./android/app/google-services.json",
-      edgeToEdgeEnabled: true,
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       package: "com.paul.overload"
     },
     web: {

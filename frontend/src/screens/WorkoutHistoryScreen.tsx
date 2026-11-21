@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Swipeable } from 'react-native-gesture-handler';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { WorkoutRecord } from '../types';
@@ -136,7 +136,7 @@ export default function WorkoutHistoryScreen() {
   const { bottom } = useSafeAreaInsets();
   const [records, setRecords] = useState<WorkoutRecord[]>([]);
   const [groups, setGroups] = useState<{ label: string; items: WorkoutRecord[] }[]>([]);
-  const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
+  const swipeRefs = useRef<Map<string, SwipeableMethods>>(new Map());
 
   const load = useCallback(() => {
     AsyncStorage.getItem(HISTORY_KEY).then(raw => {
@@ -174,7 +174,7 @@ export default function WorkoutHistoryScreen() {
           <Text className="text-13 font-outfit text-secondary font-semibold mt-3 mb-1.5 ml-1">{label}</Text>
           <View className="gap-2">
             {items.map(r => (
-              <Swipeable
+              <ReanimatedSwipeable
                 key={r.id}
                 ref={ref => { if (ref) swipeRefs.current.set(r.id, ref); else swipeRefs.current.delete(r.id); }}
                 friction={2}
@@ -199,7 +199,7 @@ export default function WorkoutHistoryScreen() {
                 )}
               >
                 <WorkoutCard record={r} />
-              </Swipeable>
+              </ReanimatedSwipeable>
             ))}
           </View>
         </View>
