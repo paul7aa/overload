@@ -2,7 +2,7 @@ name: overload
 
 services:
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v3.11.1
+    image: ghcr.io/mlflow/mlflow:v3.18.0   # keep in sync with mlflow== in requirements.txt
     ports:
       - "5001:5000"
     volumes:
@@ -22,7 +22,7 @@ services:
       retries: 5
 
   prefect:
-    image: prefecthq/prefect:3-latest
+    image: prefecthq/prefect:3.9.4-python3.12   # keep in sync with prefect== in requirements.txt
     command: prefect server start --host 0.0.0.0
     ports:
       - "4200:4200"

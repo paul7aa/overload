@@ -17,6 +17,13 @@ DROP_COLS = ["program_id", "sets", "reps", "intensity", "pct_1rm", "volume", "sa
              "delta_sets"] + TARGETS
 WEIGHTS   = {"delta_pct_1rm": 0.50, "delta_reps": 0.50}
 
+# Non-sklearn types inside MultiOutputRegressor(LGBMRegressor) that skops must be told to trust
+SKOPS_TRUSTED_TYPES = [
+    "collections.OrderedDict",
+    "lightgbm.basic.Booster",
+    "lightgbm.sklearn.LGBMRegressor",
+]
+
 def _load_data():
     train_data = pd.read_csv("data/train.csv")
     val_data   = pd.read_csv("data/val.csv")
@@ -54,7 +61,11 @@ def train(run_name, hyperparams, train_X, train_Y, val_X, val_Y, train_weights=N
 
             logger.info("%s: RMSE=%.4f  MAE=%.4f  R²=%.4f  DirAcc=%.4f", target, rmse, mae, r2, dir_acc)
 
-        mlflow.sklearn.log_model(model, name="model")
+        # MLflow >= 3.18 saves sklearn models with skops by default, which only
+        # rebuilds types listed as trusted (safer than pickle, which can run
+        # arbitrary code on load). The list is stored with the model, so
+        # load_model() in the API needs no changes.
+        mlflow.sklearn.log_model(model, name="model", skops_trusted_types=SKOPS_TRUSTED_TYPES)
 
         feature_names = train_X.columns.tolist()
         importances = pd.DataFrame(
